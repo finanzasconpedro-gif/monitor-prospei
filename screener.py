@@ -517,7 +517,9 @@ def add_value_momentum(df, series):
         pts = None
         if fair and ser is not None and len(ser) > 260:
             m, _ = momentum_index(ser)
-            w = pd.DataFrame({"c": ser, "m": m}).resample("W-FRI").last().dropna().tail(VM_WEEKS + 1)
+            w = pd.DataFrame({"c": ser, "m": m}).resample("W-FRI").last().dropna()
+            w["m"] = w.m.ewm(span=3, adjust=False).mean()
+            w = w.tail(VM_WEEKS + 1)
             if len(w) >= 8:
                 pts = [[round(float(c / fair - 1), 4), round(float(mm), 1)] for c, mm in zip(w.c, w.m)]
         if pts:
