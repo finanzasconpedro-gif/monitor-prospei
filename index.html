@@ -81,6 +81,45 @@ tr.dim td{opacity:.5}
 .calc input{width:160px}
 .note{font-size:12px;color:var(--muted);line-height:1.5}
 .alert{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:12px;display:none}
+.sbar{display:flex;align-items:center;gap:8px;min-width:120px}
+.sbar i{display:block;height:7px;border-radius:4px;background:var(--line);flex:1;position:relative;overflow:hidden}
+.sbar i b{position:absolute;inset:0 auto 0 0;border-radius:4px}
+.sbar span{font-weight:700;min-width:26px;text-align:right}
+.setup{font-size:11.5px;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);white-space:nowrap;font-weight:600}
+tr[data-t]{cursor:pointer}
+.ced-ok{font-size:11px;font-weight:600;color:var(--up)}
+#heat{display:flex;flex-direction:column;gap:10px}
+.hsec h4{margin:0 0 5px;font-size:12px;color:var(--muted);font-weight:600}
+.hsec h4 b{color:var(--ink)}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:3px}
+.hc{border-radius:5px;padding:5px 3px;text-align:center;cursor:pointer;color:#fff;font-size:11px;line-height:1.25;border:none;font-family:inherit}
+.hc b{display:block;font-size:11.5px}
+.hc:hover{outline:2px solid var(--ink)}
+.modal{position:fixed;inset:0;background:rgba(5,12,25,.55);z-index:50;display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;padding:24px 12px}
+.modal.hide{display:none}
+.sheet{background:var(--card);color:var(--ink);border-radius:16px;max-width:980px;width:100%;padding:20px;position:relative;border:1px solid var(--line)}
+.close{position:absolute;top:12px;right:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px}
+.mhead{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;padding-right:40px}
+.mhead h3{margin:0;font-size:22px}
+.mhead .nm{color:var(--muted);font-size:13px;margin-top:2px}
+.bigscore{margin-left:auto;text-align:center;border-radius:12px;padding:8px 14px;color:#fff;min-width:96px}
+.bigscore b{display:block;font-size:30px;line-height:1}
+.bigscore small{font-size:11px;opacity:.9}
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 18px;margin:14px 0}
+.pillars .l{font-size:11.5px;color:var(--muted);margin-bottom:3px}
+.lists{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+@media (max-width:820px){.lists{grid-template-columns:1fr}}
+.lists h4{margin:0 0 6px;font-size:13px}
+.lists ul{margin:0;padding-left:18px;line-height:1.5;font-size:13px}
+.lists li{margin-bottom:4px}
+.lists .pro h4{color:var(--up)}.lists .con h4{color:var(--warn)}.lists .gro h4{color:var(--accent)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 18px;font-size:13px}
+.kv div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:4px 0;gap:8px}
+.kv span{color:var(--muted)}
+.chart{width:100%;height:auto;display:block;margin-top:6px}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.cedbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;background:var(--bg)}
 footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;color:var(--muted);line-height:1.55}
 .hide{display:none}
 </style>
@@ -104,13 +143,58 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   <section class="ticker" id="kpis"></section>
 
   <nav class="tabs">
-    <button class="tab on" data-t="acc">Acciones</button>
+    <button class="tab on" data-t="opo">Oportunidades AT + AF</button>
+    <button class="tab" data-t="acc">Acciones</button>
     <button class="tab" data-t="mep">Dólar MEP por bono</button>
     <button class="tab" data-t="ced">CEDEARs desarbitrados</button>
   </nav>
 
+  <!-- OPORTUNIDADES -->
+  <section id="t-opo">
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <h2>Top 30 oportunidades</h2>
+          <p class="sub" id="opo-meta">Cargando análisis…</p>
+        </div>
+        <div class="bar" style="margin:0">
+          <button class="chip on" data-tf="all">Todas</button>
+          <button class="chip" data-tf="ced">Solo con CEDEAR / BYMA</button>
+          <button class="chip" data-tf="latam">ADR AR + BR</button>
+        </div>
+      </div>
+      <div class="tw"><table id="tb-top"></table></div>
+      <p class="note" style="margin-top:10px">Tocá cualquier papel para ver por qué aparece, su perspectiva de crecimiento y qué vigilar. Puntaje = 50% técnico + 50% fundamental, de 0 a 100. Solo entran papeles con tendencia alcista de largo plazo, o sobrevendidos con buenos fundamentos.</p>
+    </div>
+
+    <div class="card">
+      <h2>Mapa de calor</h2>
+      <p class="sub">Todo el universo agrupado por sector. Tocá un recuadro para ver la ficha.</p>
+      <div class="bar">
+        <button class="chip on" data-hm="score">Puntaje</button>
+        <button class="chip" data-hm="r1d">Var. día</button>
+        <button class="chip" data-hm="r1m">Var. 1 mes</button>
+        <button class="chip" data-hm="r6m">Var. 6 meses</button>
+      </div>
+      <div id="heat"></div>
+    </div>
+
+    <div class="card">
+      <h2>Universo completo</h2>
+      <p class="sub">S&amp;P 500 + ADRs argentinos y brasileños, con sus puntajes. Ordená por cualquier columna.</p>
+      <div class="bar">
+        <input type="search" id="q-uni" placeholder="Buscar ticker o empresa…">
+        <select id="f-reg"><option value="">Todas las regiones</option><option>EE.UU.</option><option>Argentina</option><option>Brasil</option></select>
+        <select id="f-sec"><option value="">Todos los sectores</option></select>
+        <label class="note" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-ced"> Solo con CEDEAR / BYMA</label>
+      </div>
+      <div class="tw"><table id="tb-uni"></table></div>
+      <div style="text-align:center;margin-top:10px"><button class="chip" id="more-uni">Mostrar más</button></div>
+    </div>
+  </section>
+
   <!-- ACCIONES -->
-  <section id="t-acc">
+  <section id="t-acc" class="hide">
     <div class="card">
       <h2>Acciones argentinas</h2>
       <p class="sub">Precio en pesos y en dólares (al CCL de referencia). Para las que tienen ADR, se muestra el CCL implícito y cuánto se aparta del CCL de referencia. Marcá ★ para armar tu lista.</p>
@@ -180,8 +264,15 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   </section>
 </main>
 
+<div id="modal" class="modal hide" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <button class="close" id="mclose" aria-label="Cerrar">✕</button>
+    <div id="mbody"></div>
+  </div>
+</div>
+
 <footer>
-  Información de carácter informativo y educativo. No constituye recomendación de compra o venta de valores negociables. Datos de terceros (data912.com, dolarapi.com, argentinadatos.com) que pueden tener demora o errores; verificá precios en tu ALyC antes de operar. Rendimientos pasados no garantizan resultados futuros. · PROSPEI Consultores Financieros
+  Información de carácter informativo y educativo. Los puntajes y oportunidades son una herramienta de screening cuantitativo y no constituyen recomendación de compra o venta de valores negociables; cada decisión debe evaluarse según el perfil de riesgo del inversor. Datos de terceros (data912.com, dolarapi.com, argentinadatos.com) que pueden tener demora o errores; verificá precios en tu ALyC antes de operar. Rendimientos pasados no garantizan resultados futuros. · PROSPEI Consultores Financieros
 </footer>
 
 <script>
@@ -191,7 +282,10 @@ const API='https://data912.com/live/';
 const LIDER=['ALUA','BBAR','BMA','BYMA','CEPU','COME','CRES','EDN','GGAL','IRSA','LOMA','METR','PAMP','SUPV','TECO2','TGNO4','TGSU2','TRAN','TXAR','VALO','YPFD'];
 /* ratio "a:b" = a CEDEARs equivalen a b acciones */
 const RATIOS={AAPL:'20:1',ABBV:'10:1',ABEV:'1:3',ABNB:'15:1',ABT:'4:1',ACN:'75:1',ADBE:'44:1',ADGO:'1:1',ADI:'15:1',AEM:'6:1',AIG:'5:1',AMAT:'5:1',AMD:'10:1',AMGN:'30:1',AMX:'1:1',AMZN:'144:1',ANET:'29:1',ARKK:'10:1',ARM:'27:1',ASML:'146:1',ASTS:'15:1',AVGO:'39:1',AXP:'15:1',AZN:'4:1',B:'2:1',BA:'24:1','BA.C':'41:1',BABA:'9:1',BBD:'1:1',BHP:'2:1',BIDU:'11:1',BIOX:'1:1',BK:'2:1',BKNG:'700:1',BMY:'3:1',BP:'5:1',BRKB:'22:1',C:'3:1',CAAP:'1:4',CAT:'20:1',CCJ:'23:1',CDE:'1:1',CEG:'45:1',CL:'3:1',COIN:'27:1',COP:'25:1',COST:'48:1',CRM:'18:1',CRWD:'79:1',CRWV:'27:1',CSCO:'5:1',CVS:'15:1',CVX:'16:1',CX:'1:1',DAL:'8:1',DE:'40:1',DELL:'74:1',DIA:'20:1',DISN:'12:1',EBAY:'2:1',EEM:'5:1',ETHA:'5:1',EWZ:'2:1',F:'1:1',FCX:'3:1',FDX:'10:1',FSLR:'18:1',FXI:'5:1',GDX:'10:1',GE:'8:1',GEV:'180:1',GFI:'1:1',GGB:'1:4',GILD:'4:1',GLD:'50:1',GLOB:'18:1',GM:'6:1',GOOGL:'58:1',GS:'13:1',HD:'32:1',HIMS:'4:1',HMY:'1:1',HON:'8:1',HOOD:'29:1',HSBC:'2:1',IBIT:'10:1',IBM:'15:1',INTC:'5:1',IREN:'12:1',ISRG:'90:1',ITUB:'1:1',IWM:'10:1',JD:'4:1',JNJ:'15:1',JPM:'15:1',KLAC:'34:1',KO:'5:1',LLY:'56:1',LMT:'20:1',LRCX:'56:1',MA:'33:1',MCD:'24:1',MELI:'120:1',META:'24:1',MMM:'10:1',MO:'4:1',MRK:'5:1',MRVL:'14:1',MSFT:'30:1',MSTR:'20:1',MU:'5:1',NBIS:'27:1',NEM:'3:1',NFLX:'48:1',NIO:'4:1',NKE:'12:1',NOW:'172:1',NU:'2:1',NVDA:'24:1',NVO:'7:1',OKLO:'28:1',ORCL:'3:1',OXY:'5:1',PAAS:'3:1',PAGS:'3:1',PANW:'50:1',PBR:'1:1',PDD:'25:1',PEP:'18:1',PFE:'4:1',PG:'15:1',PLTR:'3:1',PYPL:'8:1',QCOM:'11:1',QQQ:'20:1',RIO:'8:1',RKLB:'12:1',SBUX:'12:1',SE:'32:1',SHOP:'107:1',SLV:'6:1',SMH:'50:1',SNDK:'170:1',SNOW:'30:1',SPOT:'28:1',SPY:'60:1',STNE:'3:1',T:'3:1',TEN:'1:1',TGT:'24:1',TMO:'22:1',TSLA:'15:1',TSM:'9:1',TXN:'5:1',TXR:'4:1',UBER:'2:1',UNH:'33:1',V:'18:1',VALE:'2:1',VIST:'3:1',VST:'26:1',VZ:'4:1',WFC:'5:1',WMT:'18:1',XLE:'2:1',XLF:'2:1',XOM:'10:1',XP:'4:1',XYZ:'20:1',ZM:'47:1'};
-const USMAP={'BA.C':['BAC'],BRKB:['BRK.B','BRK-B','BRKB','BRK/B'],DISN:['DIS'],B:['B','GOLD']};
+Object.assign(RATIOS,{AAL:'2:1',ADP:'6:1',AVY:'18:1',BIB:'13:1',BKR:'7:1',BX:'30:1',CAH:'3:1',CCL:'3:1',DD:'5:1',DECK:'25:1',DHR:'54:1',DOW:'6:1',EA:'14:1',ECL:'56:1',EFX:'16:1',ETSY:'16:1',GLW:'41:1',GRMN:'3:1',HAL:'2:1',HOG:'3:1',HPQ:'1:1',HSY:'21:1',HWM:'1:1',IBKR:'17:1',IFF:'12:1',IP:'4:1',JCI:'2:1',KMB:'6:1',LIN:'102:1',LVS:'2:1',MDLZ:'15:1',MDT:'4:1',MMC:'16:1',MOS:'5:1',MRNA:'19:1',MS:'41:1',MSI:'20:1',NEE:'19:1',NUE:'16:1',O:'13:1',ORLY:'222:1',PCAR:'3:1',PLD:'29:1',PM:'18:1',PSX:'6:1',ROST:'41:1',RTX:'5:1',SCHW:'13:1',SHW:'69:1',SLB:'3:1',SNA:'6:1',SPGI:'45:1',SWKS:'21:1',SYY:'8:1',TJX:'22:1',TMUS:'33:1',TRVV:'6:1',UAL:'5:1',UNP:'20:1',USB:'5:1',VRSN:'6:1',VRTX:'101:1',WDC:'92:1',WELL:'48:1',SBS:'1:2',EBR:'1:4',SID:'1:8',ERJ:'1:1',SUZ:'1:1',BRFS:'1:3',UGP:'1:1',ELP:'1:13',BSBR:'1:1',VIV:'1:1',TIMB:'1:1',BAK:'2:1'});
+const USMAP={'BA.C':['BAC'],BRKB:['BRK.B','BRK-B','BRKB','BRK/B'],DISN:['DIS'],B:['B','GOLD'],BIB:['BIIB'],TRVV:['TRV']};
+const CED_INV={BAC:'BA.C','BRK-B':'BRKB',DIS:'DISN',BIIB:'BIB',TRV:'TRVV',GOOG:'GOOGL'};
+const AR_LOCAL={GGAL:'GGAL',YPF:'YPFD',PAM:'PAMP',BMA:'BMA',BBAR:'BBAR',SUPV:'SUPV',CEPU:'CEPU',TGS:'TGSU2',EDN:'EDN',CRESY:'CRES',IRS:'IRSA',LOMA:'LOMA',TEO:'TECO2'};
 const MAXDESV=0.25;
 
 /* ---------- helpers ---------- */
@@ -207,7 +301,7 @@ function parseRatio(s){const m=String(s).match(/^\s*(\d+(?:[.,]\d+)?)\s*:\s*(\d+
 async function getJ(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(url+' → '+r.status);return r.json()}
 
 /* ---------- state ---------- */
-const S={data:{},ref:{},sort:{acc:['vol',-1],mep:['liq',-1],ced:['desv',1]},
+const S={data:{},ref:{},sort:{acc:['vol',-1],mep:['liq',-1],ced:['desv',1],top:['rank',1],uni:['score',-1]},
   fav:new Set(store('fav')||[]),ratioOv:store('ratios')||{},pa:'lider',lq:'1',cf:'all',cclsrc:'bono'};
 function saveFav(){store('fav',[...S.fav])}
 
@@ -216,7 +310,7 @@ function saveFav(){store('fav',[...S.fav])}
 $('#theme').onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);store('theme',n)};
 
 /* ---------- tabs & filters ---------- */
-$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t))});
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t))});
 function chipGroup(attr,key,fn){$$('[data-'+attr+']').forEach(b=>b.onclick=()=>{$$('[data-'+attr+']').forEach(x=>x.classList.toggle('on',x===b));S[key]=b.dataset[attr];fn()})}
 chipGroup('pa','pa',renderAcc);chipGroup('lq','lq',renderMep);chipGroup('cf','cf',renderCed);
 $('#q-acc').oninput=renderAcc;$('#q-mep').oninput=renderMep;$('#q-ced').oninput=renderCed;
@@ -224,15 +318,16 @@ $('#cclsrc').onchange=e=>{S.cclsrc=e.target.value;renderCed()};
 $('#calcA').oninput=calc;$('#calcU').oninput=calc;
 
 /* ---------- generic table ---------- */
-function table(el,key,cols,rows,rowCls){
+function table(el,key,cols,rows,rowCls,limit){
   const [sk,sd]=S.sort[key];
-  const r=rows.slice().sort((a,b)=>{const x=a[sk],y=b[sk];const xa=(x==null||(typeof x==='number'&&!isFinite(x))),ya=(y==null||(typeof y==='number'&&!isFinite(y)));if(xa&&ya)return 0;if(xa)return 1;if(ya)return -1;return (typeof x==='string'?x.localeCompare(y):x-y)*sd});
+  const r=rows.slice().sort((a,b)=>{const x=a[sk],y=b[sk];const xa=(x==null||(typeof x==='number'&&!isFinite(x))),ya=(y==null||(typeof y==='number'&&!isFinite(y)));if(xa&&ya)return 0;if(xa)return 1;if(ya)return -1;return (typeof x==='string'?x.localeCompare(y):x-y)*sd}).slice(0,limit||Infinity);
   let h='<thead><tr>'+cols.map(c=>`<th class="${c.n?'n':''}" data-k="${c.k}">${c.h}${c.k===sk?`<span class="ar">${sd>0?'▲':'▼'}</span>`:''}</th>`).join('')+'</tr></thead><tbody>';
   if(!r.length)h+=`<tr><td colspan="${cols.length}" class="note" style="text-align:center;padding:20px">Sin datos para mostrar.</td></tr>`;
-  r.forEach(o=>{h+=`<tr class="${rowCls?rowCls(o):''}">`+cols.map(c=>`<td class="${c.n?'n':''}">${c.f?c.f(o):(o[c.k]??'—')}</td>`).join('')+'</tr>'});
+  r.forEach(o=>{h+=`<tr class="${rowCls?rowCls(o):''}"${o.t?` data-t="${o.t}"`:''}>`+cols.map(c=>`<td class="${c.n?'n':''}">${c.f?c.f(o):(o[c.k]??'—')}</td>`).join('')+'</tr>'});
   el.innerHTML=h+'</tbody>';
-  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(k==='fav')return;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];({acc:renderAcc,mep:renderMep,ced:renderCed})[key]()});
-  el.querySelectorAll('.star').forEach(b=>b.onclick=e=>{e.stopPropagation();const s=b.dataset.s;S.fav.has(s)?S.fav.delete(s):S.fav.add(s);saveFav();renderAcc();renderCed()});
+  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(k==='fav')return;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];({acc:renderAcc,mep:renderMep,ced:renderCed,top:renderTop,uni:renderUni})[key]()});
+  el.querySelectorAll('.star').forEach(b=>b.onclick=e=>{e.stopPropagation();const s=b.dataset.s;S.fav.has(s)?S.fav.delete(s):S.fav.add(s);saveFav();renderAcc();renderCed();renderTop();renderUni()});
+  el.querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.t));
   el.querySelectorAll('.edit').forEach(b=>b.onclick=e=>{e.stopPropagation();editRatio(b.dataset.s)});
 }
 const star=s=>`<button class="star ${S.fav.has(s)?'on':''}" data-s="${s}" title="Mi lista">${S.fav.has(s)?'★':'☆'}</button>`;
@@ -377,6 +472,199 @@ function renderCed(){
   table(el,'ced',cols,rows,o=>o.vol>0?'':'dim');
 }
 
+/* ---------- Oportunidades AT + AF ---------- */
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+S.scr=null;S.tf='all';S.hm='score';S.uniLimit=100;
+async function loadScreener(){
+  try{
+    const r=await fetch('data.json?v='+Date.now(),{cache:'no-store'});
+    if(!r.ok)throw new Error(r.status);
+    S.scr=await r.json();
+    const secs=[...new Set(S.scr.rows.map(x=>x.sector))].sort();
+    $('#f-sec').innerHTML='<option value="">Todos los sectores</option>'+secs.map(x=>`<option>${esc(x)}</option>`).join('');
+    const g=new Date(S.scr.generated);
+    $('#opo-meta').innerHTML=`Análisis de ${S.scr.analyzed} papeles (S&amp;P 500 + ADRs argentinos y brasileños) al cierre del ${g.toLocaleDateString('es-AR')} ${g.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}. Precio y variación del día se actualizan en vivo.`;
+  }catch(e){
+    S.scr=null;
+    $('#opo-meta').innerHTML='Todavía no hay análisis generado. En GitHub entrá a <b>Actions → Screener diario PROSPEI → Run workflow</b> y esperá unos 15 minutos.';
+  }
+  renderTop();renderHeat();renderUni();
+}
+function liveOf(t){const us=S.data.us||{};for(const k of [t,t.replace('-','.'),t.replace('-','')]){const x=us[k];if(x&&ok(x.c))return x}return null}
+function cedearOf(r){
+  if(r.region==='Argentina'&&AR_LOCAL[r.t])return {type:'local',code:AR_LOCAL[r.t]};
+  const code=CED_INV[r.t]||r.t;
+  const ratio=S.ratioOv[code]||RATIOS[code];
+  return ratio?{type:'ced',code,ratio}:null;
+}
+function enrich(r){
+  const lv=liveOf(r.t);const o=Object.assign({},r);
+  o.px=lv?lv.c:r.p;o.chg=lv&&lv.pct_change!=null?lv.pct_change/100:r.r1d;o.live=!!lv;
+  o.ced=cedearOf(r);o.hasCed=!!o.ced;
+  if(r.target&&o.px)o.upside=r.target/o.px-1;
+  return o;
+}
+const scoreCol=v=>{if(v==null)return 'var(--line)';const h=Math.max(0,Math.min(120,(v-25)/55*120));return `hsl(${h} 62% 42%)`};
+const pctCol=(x,rng)=>{if(x==null||!isFinite(x))return '#7a8597';const a=Math.min(1,Math.abs(x)/rng);return x>=0?`hsl(145 ${35+35*a}% ${46-14*a}%)`:`hsl(4 ${35+40*a}% ${52-16*a}%)`};
+const sbar=v=>`<div class="sbar"><i><b style="width:${Math.max(0,Math.min(100,v||0))}%;background:${scoreCol(v)}"></b></i><span>${v==null?'—':Math.round(v)}</span></div>`;
+const cedCell=o=>!o.ced?'<span class="note">—</span>':o.ced.type==='local'?`<span class="ced-ok">BYMA ${o.ced.code}</span>`:`<span class="ced-ok">CEDEAR ${o.ced.ratio}</span>`;
+function passTf(o){return S.tf==='ced'?o.hasCed:S.tf==='latam'?o.region!=='EE.UU.':true}
+function renderTop(){
+  const el=$('#tb-top');if(!S.scr){el.innerHTML='';return}
+  let rows=S.scr.rows.filter(r=>r.elig).map(enrich).filter(passTf).sort((a,b)=>b.score-a.score).slice(0,S.scr.top_n||30);
+  rows.forEach((o,i)=>o.rank=i+1);
+  const cols=[
+    {k:'rank',h:'#',n:1,f:o=>`<b>${o.rank}</b>`},
+    {k:'fav',h:'',f:o=>star(o.t)},
+    {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b><div class="note" style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</div>`},
+    {k:'setup',h:'Señal',f:o=>`<span class="setup">${esc(o.setup)}</span>`},
+    {k:'score',h:'Puntaje',f:o=>sbar(o.score)},
+    {k:'at',h:'AT',n:1,f:o=>Math.round(o.at)},
+    {k:'af',h:'AF',n:1,f:o=>Math.round(o.af)},
+    {k:'px',h:'Precio US$',n:1,f:o=>fmt(o.px)},
+    {k:'chg',h:'Var. día',n:1,f:o=>`<span class="${cls(o.chg)}">${pct(o.chg)}</span>`},
+    {k:'upside',h:'Potencial analistas',n:1,f:o=>o.n_an>=3&&o.upside!=null?`<span class="${cls(o.upside)}">${pct(o.upside,1)}</span>`:'—'},
+    {k:'rsi',h:'RSI',n:1,f:o=>fmt(o.rsi,0)},
+    {k:'fpe',h:'P/E fwd',n:1,f:o=>o.fpe>0?fmt(o.fpe,1)+'x':'—'},
+    {k:'sector',h:'Sector',f:o=>esc(o.sector)},
+    {k:'hasCed',h:'Argentina',f:cedCell}
+  ];
+  table(el,'top',cols,rows);
+}
+function renderUni(){
+  const el=$('#tb-uni');if(!S.scr){el.innerHTML='';$('#more-uni').classList.add('hide');return}
+  const q=$('#q-uni').value.trim().toUpperCase(),reg=$('#f-reg').value,sec=$('#f-sec').value,oc=$('#f-ced').checked;
+  const rows=S.scr.rows.map(enrich).filter(o=>(!q||o.t.includes(q)||String(o.name).toUpperCase().includes(q))&&(!reg||o.region===reg)&&(!sec||o.sector===sec)&&(!oc||o.hasCed));
+  const cols=[
+    {k:'fav',h:'',f:o=>star(o.t)},
+    {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b> <span class="note">${esc(o.name)}</span>`},
+    {k:'score',h:'Puntaje',f:o=>sbar(o.score)},
+    {k:'at',h:'AT',n:1,f:o=>Math.round(o.at)},
+    {k:'af',h:'AF',n:1,f:o=>Math.round(o.af)},
+    {k:'px',h:'Precio US$',n:1,f:o=>fmt(o.px)},
+    {k:'chg',h:'Var. día',n:1,f:o=>`<span class="${cls(o.chg)}">${pct(o.chg)}</span>`},
+    {k:'r6m',h:'Var. 6m',n:1,f:o=>`<span class="${cls(o.r6m)}">${pct(o.r6m,1)}</span>`},
+    {k:'rsi',h:'RSI',n:1,f:o=>fmt(o.rsi,0)},
+    {k:'fpe',h:'P/E fwd',n:1,f:o=>o.fpe>0?fmt(o.fpe,1)+'x':'—'},
+    {k:'sector',h:'Sector',f:o=>esc(o.sector)},
+    {k:'region',h:'Región',f:o=>esc(o.region)},
+    {k:'hasCed',h:'Argentina',f:cedCell}
+  ];
+  table(el,'uni',cols,rows,o=>o.elig?'':'dim',S.uniLimit);
+  $('#more-uni').classList.toggle('hide',rows.length<=S.uniLimit);
+  $('#more-uni').textContent=`Mostrar más (${Math.min(S.uniLimit,rows.length)} de ${rows.length})`;
+}
+function renderHeat(){
+  const el=$('#heat');if(!S.scr){el.innerHTML='';return}
+  const m=S.hm,rng={r1d:0.03,r1m:0.10,r6m:0.30}[m];
+  const by={};S.scr.rows.forEach(r=>{(by[r.sector]=by[r.sector]||[]).push(enrich(r))});
+  const order=(S.scr.sectors||[]).map(x=>x.sector).filter(x=>by[x]).concat(Object.keys(by).filter(x=>!(S.scr.sectors||[]).some(y=>y.sector===x)));
+  el.innerHTML=order.map(sec=>{
+    const list=by[sec].sort((a,b)=>(b.mcap||0)-(a.mcap||0));
+    const val=o=>m==='score'?o.score:(m==='r1d'?o.chg:o[m]);
+    const vals=list.map(val).filter(x=>x!=null&&isFinite(x));
+    const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+    const lab=v=>m==='score'?(v==null?'—':Math.round(v)):pct(v,1);
+    return `<div class="hsec"><h4><b>${esc(sec)}</b> · ${list.length} papeles · promedio ${lab(avg)}</h4><div class="hgrid">${list.map(o=>{const v=val(o);return `<button class="hc" data-t="${esc(o.t)}" style="background:${m==='score'?scoreCol(v):pctCol(v,rng)}" title="${esc(o.name)}"><b>${esc(o.t)}</b>${lab(v)}</button>`}).join('')}</div></div>`;
+  }).join('');
+  el.querySelectorAll('.hc').forEach(b=>b.onclick=()=>openDetail(b.dataset.t));
+}
+$$('[data-tf]').forEach(b=>b.onclick=()=>{$$('[data-tf]').forEach(x=>x.classList.toggle('on',x===b));S.tf=b.dataset.tf;renderTop()});
+$$('[data-hm]').forEach(b=>b.onclick=()=>{$$('[data-hm]').forEach(x=>x.classList.toggle('on',x===b));S.hm=b.dataset.hm;renderHeat()});
+$('#q-uni').oninput=()=>{S.uniLimit=100;renderUni()};$('#f-reg').onchange=renderUni;$('#f-sec').onchange=renderUni;$('#f-ced').onchange=renderUni;
+$('#more-uni').onclick=()=>{S.uniLimit+=150;renderUni()};
+
+function sma(a,n){const o=new Array(a.length).fill(null);let s=0;for(let i=0;i<a.length;i++){s+=a[i];if(i>=n)s-=a[i-n];if(i>=n-1)o[i]=s/n}return o}
+function chartSvg(cl){
+  if(!cl||cl.length<60)return '';
+  const s50=sma(cl,50),s200=sma(cl,200),N=Math.min(252,cl.length),st=cl.length-N;
+  const P=cl.slice(st),A=s50.slice(st),B=s200.slice(st);
+  const all=P.concat(A,B).filter(x=>x!=null);const mn=Math.min(...all),mx=Math.max(...all),pad=(mx-mn)*0.06||1;
+  const W=900,H=260,L=8,R=58,T=10,Bm=22;
+  const x=i=>L+i*(W-L-R)/(N-1),y=v=>T+(1-(v-(mn-pad))/((mx+pad)-(mn-pad)))*(H-T-Bm);
+  const path=arr=>{let d='',pen=false;arr.forEach((v,i)=>{if(v==null){pen=false;return}d+=(pen?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);pen=true});return d};
+  const ticks=[0,.25,.5,.75,1].map(f=>mn-pad+f*((mx+pad)-(mn-pad)));
+  const up=P[P.length-1]>=P[0];
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Precio del último año con medias de 50 y 200 ruedas">
+    ${ticks.map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)" stroke-width="1"/><text x="${W-R+6}" y="${y(v)+4}" font-size="11" style="fill:var(--muted)">${fmt(v)}</text>`).join('')}
+    <path d="${path(P)}L${x(N-1)} ${H-Bm}L${x(0)} ${H-Bm}Z" style="fill:${up?'var(--up)':'var(--down)'};opacity:.08"/>
+    <path d="${path(B)}" fill="none" style="stroke:var(--muted)" stroke-width="1.6" stroke-dasharray="5 4"/>
+    <path d="${path(A)}" fill="none" style="stroke:#e0a800" stroke-width="1.6"/>
+    <path d="${path(P)}" fill="none" style="stroke:var(--accent)" stroke-width="2"/>
+    <text x="${L}" y="${H-6}" font-size="11" style="fill:var(--muted)">hace 12 meses</text>
+    <text x="${W-R}" y="${H-6}" font-size="11" text-anchor="end" style="fill:var(--muted)">hoy</text>
+  </svg>
+  <div class="legend"><span><i style="background:var(--accent)"></i>Precio</span><span><i style="background:#e0a800"></i>Media 50 ruedas</span><span><i style="background:var(--muted)"></i>Media 200 ruedas</span></div>`;
+}
+function openDetail(t){
+  if(!S.scr)return;const r0=S.scr.rows.find(x=>x.t===t);if(!r0)return;const o=enrich(r0);
+  const kv=(l,v)=>`<div><span>${l}</span><b class="num">${v}</b></div>`;
+  const pill=(l,v)=>`<div><div class="l">${l}</div>${sbar(v)}</div>`;
+  const li=a=>a&&a.length?a.map(x=>`<li>${esc(x)}</li>`).join(''):'<li class="note">Sin datos suficientes.</li>';
+  const recTxt=o.rec==null||o.n_an<3?'—':(o.rec<=1.5?'Compra fuerte':o.rec<=2.5?'Compra':o.rec<=3.5?'Mantener':'Venta')+` (${fmt(o.rec,1)})`;
+  let ced='';
+  if(o.ced&&o.ced.type==='ced'){
+    const cm={};(S.data.cedears||[]).forEach(c=>{if(c&&c.symbol)cm[c.symbol]=c});
+    const c=cm[o.ced.code],pr=parseRatio(o.ced.ratio),ccl=S.cedRef||(S.ref.ccl&&S.ref.ccl.v);
+    let extra='';
+    if(c&&ok(c.c)&&pr&&ccl&&o.px){const sh=pr.b/pr.a,justo=o.px*ccl*sh,desv=c.c/justo-1;
+      extra=` Precio en BYMA: <b>$ ${fmt(c.c)}</b> · precio justo $ ${fmt(justo)} · ${Math.abs(desv)>MAXDESV?'<span class="pill warn">revisar ratio</span>':`<span class="pill ${desv<0?'down':'up'}">${pct(desv)} ${desv<-0.01?'barato':desv>0.01?'caro':'en precio'}</span>`}`}
+    ced=`<div class="cedbox">🇦🇷 Se puede comprar desde Argentina como <b>CEDEAR ${esc(o.ced.code)}</b> (ratio ${esc(o.ced.ratio)}).${extra}</div>`;
+  }else if(o.ced&&o.ced.type==='local'){
+    const st=(S.data.stocks||[]).find(x=>x.symbol===o.ced.code);
+    ced=`<div class="cedbox">🇦🇷 Cotiza en BYMA como <b>${esc(o.ced.code)}</b>${st&&ok(st.c)?` a $ ${fmt(st.c)} (${pct((st.pct_change||0)/100)})`:''}${S.data.adrCcl&&S.data.adrCcl[o.ced.code]?` · CCL implícito $ ${fmt(S.data.adrCcl[o.ced.code])}`:''}.</div>`;
+  }else{
+    ced=`<div class="cedbox note">No figura en la lista de CEDEARs de este monitor. Se puede operar desde una cuenta en el exterior.</div>`;
+  }
+  $('#mbody').innerHTML=`
+    <div class="mhead">
+      <div>
+        <h3>${esc(o.t)} ${o.rank?`<span class="tag">TOP ${o.rank}</span>`:''}</h3>
+        <div class="nm">${esc(o.name)} · ${esc(o.sector)} · ${esc(o.region)}</div>
+        <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:22px;font-weight:700" class="num">US$ ${fmt(o.px)}</span>
+          <span class="pill ${cls(o.chg)}">${pct(o.chg)}</span>
+          <span class="setup">${esc(o.setup)}</span>
+          ${o.elig?'':'<span class="pill warn">Fuera del filtro de oportunidades</span>'}
+        </div>
+      </div>
+      <div class="bigscore" style="background:${scoreCol(o.score)}"><b>${Math.round(o.score)}</b><small>Puntaje PROSPEI</small></div>
+    </div>
+    <div class="pillars">
+      ${pill('Técnico (AT)',o.at)}${pill('Fundamental (AF)',o.af)}
+      ${pill('Valuación',o.f_val*100)}${pill('Crecimiento',o.f_gro*100)}${pill('Calidad',o.f_qua*100)}${pill('Solidez financiera',o.f_sol*100)}${pill('Visión analistas',o.f_ana*100)}
+    </div>
+    ${o.closes?chartSvg(o.closes):'<p class="note">El gráfico está disponible para los papeles del top.</p>'}
+    <div class="lists">
+      <div class="pro"><h4>Por qué aparece como oportunidad</h4><ul>${li(o.pro)}</ul></div>
+      <div class="gro"><h4>Perspectiva de crecimiento</h4><ul>${li(o.grow)}</ul></div>
+      <div class="con"><h4>A vigilar</h4><ul>${li(o.con)}</ul></div>
+    </div>
+    <div class="grid2">
+      <div><h4 style="margin:0 0 6px">Análisis técnico</h4><div class="kv">
+        ${kv('RSI (14)',fmt(o.rsi,0))}${kv('vs media 50',pct(o.p/o.sma50-1,1))}${kv('vs media 200',pct(o.p/o.sma200-1,1))}
+        ${kv('Desde máx. 52 sem.',pct(o.dd,1))}${kv('Máx. / mín. 52 sem.',fmt(o.hi52)+' / '+fmt(o.lo52))}
+        ${kv('Var. 1 mes',pct(o.r1m,1))}${kv('Var. 3 meses',pct(o.r3m,1))}${kv('Var. 6 meses',pct(o.r6m,1))}${kv('Var. 12 meses',pct(o.r12m,1))}
+        ${kv('Volatilidad anual',o.volat==null?'—':fmt(o.volat*100,0)+'%')}${kv('Volumen relativo',o.vol_ratio==null?'—':fmt(o.vol_ratio,2)+'x')}
+        ${kv('MACD',o.macd_h>0?'Positivo':'Negativo')}
+      </div></div>
+      <div><h4 style="margin:0 0 6px">Análisis fundamental</h4><div class="kv">
+        ${kv('P/E histórico',o.pe>0?fmt(o.pe,1)+'x':'—')}${kv('P/E esperado',o.fpe>0?fmt(o.fpe,1)+'x':'—')}${kv('P/E esperado sector',o.sec_fpe?fmt(o.sec_fpe,1)+'x':'—')}
+        ${kv('PEG',o.peg>0?fmt(o.peg,2):'—')}${kv('Precio / valor libros',o.pb>0?fmt(o.pb,1)+'x':'—')}
+        ${kv('Crec. ventas (a/a)',pct(o.rev_g,1))}${kv('Crec. ganancias (a/a)',pct(o.eps_g,1))}
+        ${kv('ROE',o.roe==null?'—':fmt(o.roe*100,1)+'%')}${kv('Margen neto',o.margin==null?'—':fmt(o.margin*100,1)+'%')}
+        ${kv('Deuda / patrimonio',o.de==null?'—':fmt(o.de/100,2)+'x')}${kv('Dividendo',o.div==null?'—':fmt(o.div,2)+'%')}
+        ${kv('Precio objetivo',o.target&&o.n_an>=3?'US$ '+fmt(o.target)+' ('+pct(o.upside,1)+')':'—')}${kv('Consenso ('+(o.n_an||0)+' analistas)',recTxt)}
+      </div></div>
+    </div>
+    ${ced}
+    <p class="note" style="margin-top:12px">Puntaje calculado al cierre del ${new Date(S.scr.generated).toLocaleDateString('es-AR')} con datos de Yahoo Finance. Herramienta de screening: no es una recomendación de inversión.</p>`;
+  $('#modal').classList.remove('hide');document.body.style.overflow='hidden';
+}
+function closeDetail(){$('#modal').classList.add('hide');document.body.style.overflow=''}
+$('#mclose').onclick=closeDetail;$('#modal').onclick=e=>{if(e.target.id==='modal')closeDetail()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
+
 /* ---------- KPIs ---------- */
 function renderKpis(){
   const d=S.data,k=[];
@@ -412,7 +700,7 @@ async function load(){
   if(rp.status==='fulfilled'&&rp.value&&rp.value.valor)S.data.rp=rp.value;
   if(S.data.bonds){const R=S.data.bonds.rows;S.ref.mep=pickRef(R,'ult',['AL30','GD30']);S.ref.ccl=pickRef(R,'ccl',['AL30','GD30'])}
   buildCed();
-  renderKpis();renderAcc();renderMep();renderCed();
+  renderKpis();renderAcc();renderMep();renderCed();renderTop();renderHeat();renderUni();
   const a=$('#alert');
   if(errs.length){a.style.display='block';a.textContent='No se pudieron actualizar: '+errs.join(', ')+'. Se reintenta en el próximo refresco.'}else a.style.display='none';
   $('#dot').className='dot'+(errs.length>=3?' err':'');
@@ -420,6 +708,7 @@ async function load(){
   loading=false;
 }
 $('#refresh').onclick=load;
+loadScreener();setInterval(loadScreener,30*60000);
 setInterval(()=>{if($('#auto').checked&&!document.hidden)load()},60000);
 load();
 })();
