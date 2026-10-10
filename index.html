@@ -97,6 +97,16 @@ tr[data-t]{cursor:pointer}
 .tc b{font-weight:700}
 .tmtip{position:fixed;z-index:60;background:#14171e;color:#fff;border:1px solid #3a3f4b;border-radius:8px;padding:8px 10px;font-size:12.5px;pointer-events:none;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .tmtip.hide{display:none}
+.mm-wrap{display:grid;grid-template-columns:1fr 250px;gap:14px;align-items:start}
+@media (max-width:860px){.mm-wrap{grid-template-columns:1fr}}
+.mm-side{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);font-size:13px;min-height:120px}
+.mm-side.on{border-color:var(--accent)}
+.mm-empty{color:var(--muted);line-height:1.5}
+.mm-empty b{color:var(--ink)}
+.mm-h{display:flex;align-items:center;gap:6px;min-width:0}
+.mm-h b{font-size:16px}
+.mm-date{color:var(--muted);font-size:12px;margin-top:6px}
+.mm-zone{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:999px;font-weight:700;font-size:13px;transition:background .25s,color .25s}
 .secgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:4px 0 14px}
 .sc{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);cursor:pointer;text-align:left;font:inherit;color:var(--ink)}
 .sc:hover{border-color:var(--accent)}
@@ -234,48 +244,30 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   <section id="t-rot" class="hide">
     <div class="card">
       <h2>Rotación sectorial</h2>
-      <p class="sub">Cada punto es un ETF sectorial y la cola es su recorrido semanal. Horizontal: si le gana o le pierde al S&amp;P 500. Vertical: si viene acelerando o frenándose. Los sectores suelen girar en sentido horario: Mejorando → Liderando → Perdiendo impulso → Rezagado.</p>
-      <div class="bar" id="rrg-sec-ctl">
-        <span class="note">Cola:</span>
-        <button class="chip" data-rt="4">4 semanas</button>
-        <button class="chip on" data-rt="8">8 semanas</button>
-        <button class="chip" data-rt="13">3 meses</button>
-        <button class="chip" data-rt="26">6 meses</button>
-        <button class="chip" id="rrg-play" style="margin-left:auto">▶ Ver la película de 6 meses</button>
-      </div>
-      <div id="rrg-sec"></div>
-      <div class="bar" style="margin-top:8px"><input type="range" id="rrg-week" min="0" max="26" value="26" style="flex:1"><span class="note" id="rrg-date" style="min-width:190px;text-align:right"></span></div>
-      <div id="rrg-sec-list" class="secgrid" style="margin-top:6px"></div>
+      <p class="sub">Dónde está hoy cada sector frente al S&amp;P 500. Horizontal: si le gana o le pierde. Vertical: si viene acelerando o frenándose. Los sectores suelen girar en sentido horario: Mejorando → Liderando → Perdiendo impulso → Rezagado. <b>Tocá un sector</b> para ver su recorrido de 6 meses.</p>
+      <div class="mm-wrap"><div id="rrg-sec" class="mm-chart"></div><div id="rrg-sec-panel" class="mm-side"></div></div>
+      <div id="rrg-sec-list" class="secgrid" style="margin-top:10px"></div>
     </div>
     <div class="card">
       <h2>Mapa de valor y momentum</h2>
-      <p class="sub">Cada círculo es una acción y su cola tipo cometa muestra el recorrido semanal. <b>Horizontal:</b> cuánto descuento (izquierda) o premio (derecha) tiene frente a su valor justo estimado. <b>Vertical:</b> momentum técnico (medias de 50 y 200, RSI y MACD). El ciclo típico gira en sentido horario: <b style="color:#d93025">Evitar</b> → <b style="color:#1d7af3">Vigilar</b> → <b style="color:#0f9d58">Compra</b> → <b style="color:#b98a00">Mantener</b>. Cuando cruza la línea punteada, llegó a su valor justo y deja de ser oportunidad.</p>
+      <p class="sub">Cada punto es una acción. Horizontal: descuento (izquierda) o premio (derecha) frente a su valor justo estimado; la línea punteada es el valor justo. Vertical: momentum técnico (medias de 50 y 200, RSI y MACD). Ciclo típico: <b style="color:#d93025">Evitar</b> → <b style="color:#1d7af3">Vigilar</b> → <b style="color:#0f9d58">Compra</b> → <b style="color:#b98a00">Mantener</b>. <b>Tocá una acción</b> para ver cómo recorrió el ciclo.</p>
       <div class="bar">
         <button class="chip on" data-vmr="us">S&amp;P 500</button>
         <button class="chip" data-vmr="latam">ADRs AR + BR</button>
         <select id="vm-sec"><option value="">Todos los sectores</option></select>
         <span id="vm-count" style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap"></span>
       </div>
-      <div class="bar">
-        <span class="note">Resaltar:</span>
-        <button class="chip on" data-vmf="all">Todas</button>
+      <div class="mm-wrap"><div id="vm-map" class="mm-chart"></div><div id="vm-panel" class="mm-side"></div></div>
+      <div class="bar" style="margin-top:14px">
+        <button class="chip on" data-vmf="buy">En zona de compra</button>
         <button class="chip" data-vmf="new">Recién entraron a compra</button>
-        <button class="chip" data-vmf="buy">En zona de compra</button>
-        <button class="chip" data-vmf="fair">Llegando a valor justo</button>
         <button class="chip" data-vmf="turn">Por girar</button>
+        <button class="chip" data-vmf="fair">Llegando a valor justo</button>
+        <button class="chip" data-vmf="all">Todas</button>
       </div>
-      <div class="bar" id="vm-ctl2">
-        <span class="note">Cola:</span>
-        <button class="chip" data-vmt="4">4 semanas</button>
-        <button class="chip on" data-vmt="8">8 semanas</button>
-        <button class="chip" data-vmt="13">3 meses</button>
-        <button class="chip" id="vm-play" style="margin-left:auto">▶ Ver el movimiento de 6 meses</button>
-      </div>
-      <div id="vm-map"></div>
-      <div class="bar" style="margin-top:8px"><input type="range" id="vm-week" min="0" max="26" value="26" style="flex:1"><span class="note" id="vm-date" style="min-width:190px;text-align:right"></span></div>
-      <h3 style="margin:14px 0 8px;font-size:15px" id="vm-tbl-title">Papeles en zona de compra</h3>
+      <h3 style="margin:4px 0 8px;font-size:15px" id="vm-tbl-title">En zona de compra</h3>
       <div class="tw"><table id="tb-vm"></table></div>
-      <p class="note" style="margin-top:10px">Valor justo estimado = promedio de (ganancia por acción esperada × P/E mediano de su sector) y precio objetivo de los analistas. Es una estimación: si cambian las ganancias esperadas, cambia el valor justo. Las colas usan el valor justo actual contra los precios de cada semana. Herramienta de screening, no es una recomendación.</p>
+      <p class="note" style="margin-top:10px">Tocá una fila para ver su recorrido en el mapa. Valor justo estimado = promedio de (ganancia por acción esperada × P/E mediano de su sector) y precio objetivo de los analistas; si cambian las ganancias esperadas, cambia el valor justo. Herramienta de screening, no es una recomendación.</p>
     </div>
   </section>
 
@@ -696,163 +688,198 @@ function openEtf(tk){
   const sb=$('#see-sec');if(sb)sb.onclick=()=>{closeDetail();$('#f-sec').value=e.sector;$('#f-reg').value='';S.uniLimit=100;renderUni();$$('.tab').find(b=>b.dataset.t==='opo').click();setTimeout(()=>$('#tb-uni').scrollIntoView({behavior:'smooth'}),50)};
   $('#modal').classList.remove('hide');document.body.style.overflow='hidden';
 }
-/* ---------- Rotación (RRG) ---------- */
-S.rs={tail:8,cur:null,timer:null};S.ra={tail:4,sec:'',reg:'us',only:false};
-const QCOL={Liderando:'#0f9d58',Mejorando:'#1d7af3','Perdiendo impulso':'#e0a800',Rezagado:'#d93025'};
+/* ---------- Rotación: mapas con animación por papel ---------- */
+const QCOL={Liderando:'#0f9d58',Mejorando:'#1d7af3','Perdiendo impulso':'#d9a400',Rezagado:'#d93025'};
+const ZCOL={Compra:'#0f9d58',Mantener:'#d9a400',Vigilar:'#1d7af3',Evitar:'#d93025'};
 const qOf=(x,y)=>x>=100?(y>=100?'Liderando':'Perdiendo impulso'):(y>=100?'Mejorando':'Rezagado');
-const valCol=v=>v==null?'#8a94a6':v>=0.65?'#0f9d58':v>=0.4?'#e0a800':'#d93025';
-function rrgBounds(pts){
-  const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);
-  const q=(a,f)=>a[Math.max(0,Math.min(a.length-1,Math.round(f*(a.length-1))))];
-  const dx=Math.max(1.5,Math.abs(q(xs,.02)-100),Math.abs(q(xs,.98)-100))*1.12,dy=Math.max(1.5,Math.abs(q(ys,.02)-100),Math.abs(q(ys,.98)-100))*1.12;
-  return {x0:100-dx,x1:100+dx,y0:100-dy,y1:100+dy};
+const vmZone=(x,y)=>x<0?(y>=0?'Compra':'Vigilar'):(y>=0?'Mantener':'Evitar');
+const SVGNS='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs,parent){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+function catmull(P,n){
+  if(P.length<2)return P.map((p,i)=>({x:p[0],y:p[1],w:i}));
+  const out=[];
+  for(let i=0;i<P.length-1;i++){const p0=P[i-1]||P[i],p1=P[i],p2=P[i+1],p3=P[i+2]||P[i+1];
+    for(let s=0;s<n;s++){const t=s/n,t2=t*t,t3=t2*t;
+      const f=k=>0.5*(2*p1[k]+(-p0[k]+p2[k])*t+(2*p0[k]-5*p1[k]+4*p2[k]-p3[k])*t2+(-p0[k]+3*p1[k]-3*p2[k]+p3[k])*t3);
+      out.push({x:f(0),y:f(1),w:i+t})}}
+  const L=P[P.length-1];out.push({x:L[0],y:L[1],w:P.length-1});return out;
 }
-function rrgSvg(items,b,opt){
-  opt=opt||{};const W=680,H=opt.h||500,L=12,R=12,T=12,B=30;
-  const X=v=>L+(Math.max(b.x0,Math.min(b.x1,v))-b.x0)/(b.x1-b.x0)*(W-L-R),Y=v=>T+(1-(Math.max(b.y0,Math.min(b.y1,v))-b.y0)/(b.y1-b.y0))*(H-T-B);
-  const cx=X(100),cy=Y(100);
-  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Gráfico de rotación">
-  <rect x="${L}" y="${T}" width="${cx-L}" height="${cy-T}" fill="#1d7af3" opacity=".07"/>
-  <rect x="${cx}" y="${T}" width="${W-R-cx}" height="${cy-T}" fill="#0f9d58" opacity=".08"/>
-  <rect x="${cx}" y="${cy}" width="${W-R-cx}" height="${H-B-cy}" fill="#e0a800" opacity=".09"/>
-  <rect x="${L}" y="${cy}" width="${cx-L}" height="${H-B-cy}" fill="#d93025" opacity=".07"/>
-  <line x1="${L}" x2="${W-R}" y1="${cy}" y2="${cy}" style="stroke:var(--muted)" stroke-width=".6" opacity=".6"/>
-  <line x1="${cx}" x2="${cx}" y1="${T}" y2="${H-B}" style="stroke:var(--muted)" stroke-width=".6" opacity=".6"/>
-  <text x="${L+8}" y="${T+18}" font-size="13" font-weight="700" fill="#1d7af3">Mejorando</text>
-  <text x="${W-R-8}" y="${T+18}" font-size="13" font-weight="700" fill="#0f9d58" text-anchor="end">Liderando</text>
-  <text x="${W-R-8}" y="${H-B-10}" font-size="13" font-weight="700" fill="#b98a00" text-anchor="end">Perdiendo impulso</text>
-  <text x="${L+8}" y="${H-B-10}" font-size="13" font-weight="700" fill="#d93025">Rezagado</text>
-  <text x="${W/2}" y="${H-9}" font-size="11.5" text-anchor="middle" style="fill:var(--muted)">← pierde contra el S&amp;P 500 · Fuerza relativa · le gana al S&amp;P 500 →</text>`;
-  items.filter(i=>i.tail&&i.pts.length>1).forEach(i=>{
-    const d=i.pts.map((p,k)=>(k?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('');
-    s+=`<path d="${d}" fill="none" stroke="${i.color}" stroke-width="${i.tw||2}" opacity=".55" stroke-linejoin="round" stroke-linecap="round"/>`;
-    i.pts.slice(0,-1).forEach(p=>{s+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="2.2" fill="${i.color}" opacity=".55"/>`});
+/* cfg: el, panel, W,H, bx:[x0,x1], by:[y0,y1], cx,cy (líneas divisorias), quads:[{x0,x1,y0,y1,col,label,anchor}], xLabel, ticks:[{v,t}],
+   items:[{id,pts,r,label,title}], zoneOf(x,y), zcol, dates, panelHtml(item,weekIdx,zone), onOpen(id) */
+function motionMap(cfg){
+  const W=680,H=cfg.H||500,L=12,R=12,T=12,B=34;
+  const X=v=>L+(Math.max(cfg.bx[0],Math.min(cfg.bx[1],v))-cfg.bx[0])/(cfg.bx[1]-cfg.bx[0])*(W-L-R);
+  const Y=v=>T+(1-(Math.max(cfg.by[0],Math.min(cfg.by[1],v))-cfg.by[0])/(cfg.by[1]-cfg.by[0]))*(H-T-B);
+  const el=cfg.el;el.innerHTML='';
+  const svg=svgEl('svg',{viewBox:`0 0 ${W} ${H}`,style:'width:100%;height:auto;display:block;touch-action:manipulation',role:'img','aria-label':cfg.aria||'Mapa'},el);
+  const cx=X(cfg.cx),cy=Y(cfg.cy);
+  const bg=svgEl('rect',{x:0,y:0,width:W,height:H,fill:'transparent'},svg);
+  cfg.quads.forEach(q=>{
+    const x0=q.left?L:cx,x1=q.left?cx:W-R,y0=q.top?T:cy,y1=q.top?cy:H-B;
+    svgEl('rect',{x:x0,y:y0,width:x1-x0,height:y1-y0,fill:q.col,opacity:'.08'},svg);
+    const t=svgEl('text',{x:q.left?x0+10:x1-10,y:q.top?y0+20:y1-10,'font-size':'13','font-weight':'700',fill:q.col,'text-anchor':q.left?'start':'end',style:'paint-order:stroke;stroke:var(--card);stroke-width:4px;pointer-events:none'},svg);t.textContent=q.label;
   });
-  items.forEach(i=>{const p=i.pts[i.pts.length-1];if(!p)return;
-    s+=`<circle class="rrgpt" data-id="${esc(i.id)}" cx="${X(p[0])}" cy="${Y(p[1])}" r="${i.r||6}" fill="${i.color}" ${i.ring?`stroke="${i.ring}" stroke-width="2.5"`:'stroke="#fff" stroke-width="1"'} style="cursor:pointer" ${i.op?`opacity="${i.op}"`:''}><title>${esc(i.title||i.label)}</title></circle>`;
-    if(i.label)s+=`<text x="${X(p[0])+(i.r||6)+4}" y="${Y(p[1])+4}" font-size="${i.fs||12}" font-weight="700" style="fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px;pointer-events:none">${esc(i.label)}</text>`;
+  svgEl('line',{x1:L,x2:W-R,y1:cy,y2:cy,style:'stroke:var(--muted)','stroke-width':'.7',opacity:'.6'},svg);
+  svgEl('line',{x1:cx,x2:cx,y1:T,y2:H-B,style:'stroke:var(--muted)','stroke-width':cfg.cxStrong?'1.3':'.7','stroke-dasharray':cfg.cxStrong?'6 4':'',opacity:'.7'},svg);
+  if(cfg.cxLabel){const t=svgEl('text',{x:cx+5,y:cy-6,'font-size':'11',style:'fill:var(--muted)'},svg);t.textContent=cfg.cxLabel}
+  (cfg.ticks||[]).forEach(k=>{if(k.v<=cfg.bx[0]||k.v>=cfg.bx[1])return;const t=svgEl('text',{x:X(k.v),y:H-B+14,'font-size':'10.5','text-anchor':'middle',style:'fill:var(--muted)'},svg);t.textContent=k.t});
+  const xl=svgEl('text',{x:W/2,y:H-4,'font-size':'11.5','text-anchor':'middle',style:'fill:var(--muted)'},svg);xl.textContent=cfg.xLabel;
+  const gDots=svgEl('g',{},svg),gSel=svgEl('g',{},svg);
+  const dots={};
+  cfg.items.forEach(it=>{const p=it.pts[it.pts.length-1];if(!p)return;const z=cfg.zoneOf(p[0],p[1]);
+    const g=svgEl('g',{style:'cursor:pointer'},gDots);
+    const c=svgEl('circle',{cx:X(p[0]),cy:Y(p[1]),r:it.r,fill:cfg.zcol[z],stroke:'#fff','stroke-width':'.8',opacity:cfg.dotOp||'.85'},g);
+    const tt=svgEl('title',{},c);tt.textContent=it.title;
+    if(it.label){const t=svgEl('text',{x:X(p[0])+it.r+3,y:Y(p[1])+4,'font-size':'11.5','font-weight':'700',style:'fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px;pointer-events:none'},g);t.textContent=it.label}
+    g.addEventListener('click',e=>{e.stopPropagation();select(it.id)});
+    dots[it.id]={g,it};
   });
-  return s+'</svg>';
+  let raf=null,selId=null;
+  function clear(){
+    if(raf)cancelAnimationFrame(raf);raf=null;selId=null;gSel.innerHTML='';
+    Object.values(dots).forEach(d=>d.g.style.opacity='1');
+    cfg.panel.innerHTML=cfg.emptyHtml;cfg.panel.classList.remove('on');
+    if(cfg.onClear)cfg.onClear();
+  }
+  function select(id,{noAnim}={}){
+    const d=dots[id];if(!d)return;selId=id;
+    Object.values(dots).forEach(o=>o.g.style.opacity=o===d?'0':'.12');
+    gSel.innerHTML='';
+    const P=d.it.pts,S=catmull(P,16).map(p=>({x:X(p.x),y:Y(p.y),w:p.w,rx:p.x,ry:p.y}));
+    const pathOf=arr=>arr.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)).join('');
+    svgEl('path',{d:pathOf(S),fill:'none',style:'stroke:var(--muted)','stroke-width':'1.5','stroke-dasharray':'3 5',opacity:'.55'},gSel);
+    P.forEach((p,i)=>svgEl('circle',{cx:X(p[0]),cy:Y(p[1]),r:2.4,fill:cfg.zcol[cfg.zoneOf(p[0],p[1])],opacity:'.55'},gSel));
+    const st=svgEl('text',{x:X(P[0][0])+7,y:Y(P[0][1])-7,'font-size':'11',style:'fill:var(--muted);paint-order:stroke;stroke:var(--card);stroke-width:3px'},gSel);st.textContent=cfg.startLabel||'inicio';
+    const trail=svgEl('path',{d:'',fill:'none','stroke-width':'3.2','stroke-linecap':'round','stroke-linejoin':'round',opacity:'.9'},gSel);
+    const head=svgEl('circle',{r:d.it.r+3,stroke:'#fff','stroke-width':'2'},gSel);
+    const hl=svgEl('text',{'font-size':'13','font-weight':'700',style:'fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:4px'},gSel);hl.textContent=d.it.label||d.it.id;
+    cfg.panel.classList.add('on');
+    let lastW=-1;
+    function frame(k){
+      const p=S[k];const z=cfg.zoneOf(p.rx,p.ry),col=cfg.zcol[z];
+      trail.setAttribute('d',pathOf(S.slice(0,k+1)));trail.setAttribute('stroke',col);
+      head.setAttribute('cx',p.x);head.setAttribute('cy',p.y);head.setAttribute('fill',col);
+      hl.setAttribute('x',p.x+d.it.r+7);hl.setAttribute('y',p.y+4);
+      const wk=Math.round(p.w),isEnd=k===S.length-1,key=wk+(isEnd?'e':'');if(key!==lastW){lastW=key;cfg.panel.innerHTML=cfg.panelHtml(d.it,wk,z,isEnd);wire()}
+    }
+    function wire(){
+      const a=cfg.panel.querySelector('[data-mm="play"]');if(a)a.onclick=()=>select(id);
+      const o=cfg.panel.querySelector('[data-mm="open"]');if(o)o.onclick=()=>cfg.onOpen(id);
+      const c=cfg.panel.querySelector('[data-mm="close"]');if(c)c.onclick=clear;
+    }
+    if(raf)cancelAnimationFrame(raf);
+    const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(noAnim||reduce){frame(S.length-1);return}
+    const dur=Math.min(7000,1800+P.length*190),t0=performance.now();
+    const ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    const step=now=>{const t=Math.min(1,(now-t0)/dur);frame(Math.round(ease(t)*(S.length-1)));if(t<1)raf=requestAnimationFrame(step);else raf=null};
+    raf=requestAnimationFrame(step);
+  }
+  bg.addEventListener('click',clear);
+  cfg.panel.innerHTML=cfg.emptyHtml;
+  return {select,clear,get selected(){return selId}};
 }
+const fmtWeek=d=>d?new Date(d+'T12:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'}):'';
+
+/* ---- Sectores ---- */
+S.mmSec=null;
 function renderRotSec(){
   const el=$('#rrg-sec');if(!el)return;
   const E=(S.scr&&S.scr.etfs||[]).filter(e=>e.rrg&&e.rrg.length);
-  if(!E.length){el.innerHTML='<p class="note">El gráfico aparece después de la próxima corrida del análisis diario.</p>';$('#rrg-sec-ctl').classList.add('hide');return}
-  $('#rrg-sec-ctl').classList.remove('hide');
-  const N=E[0].rrg.length;if(S.rs.cur==null||S.rs.cur>N-1)S.rs.cur=N-1;
-  const cur=S.rs.cur,t=S.rs.tail,dates=S.scr.rrg_dates||[];
-  const all=[];E.forEach(e=>e.rrg.forEach(p=>all.push(p)));const b=rrgBounds(all);
-  const items=E.map(e=>{const pts=e.rrg.slice(Math.max(0,cur-t),cur+1);const last=pts[pts.length-1];const q=qOf(last[0],last[1]);
-    return {id:e.etf,label:e.etf,pts,color:QCOL[q],tail:true,r:7,title:`${e.etf} · ${e.sector} · ${q}`}});
-  el.innerHTML=rrgSvg(items,b,{h:500});
-  el.querySelectorAll('.rrgpt').forEach(c=>c.onclick=()=>openEtf(c.dataset.id));
-  const sl=$('#rrg-week');sl.max=N-1;sl.value=cur;
-  const dt=dates[cur]?new Date(dates[cur]+'T12:00:00'):null;
-  $('#rrg-date').textContent=dt?`Semana del ${dt.toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'})}${cur===N-1?' (actual)':''}`:'';
-  const tb=E.map(e=>{const last=e.rrg[cur],q=qOf(last[0],last[1]);return `<button class="sc" data-etf="${esc(e.etf)}" style="padding:7px 10px"><div class="top"><span class="nm">${esc(e.sector)}</span><span class="tk">${esc(e.etf)}</span></div><div class="ln"><span class="fase ${faseCls(q)}">${esc(q)}</span><b>${cur===N-1&&e.head?esc(e.head):''}</b></div></button>`}).join('');
-  $('#rrg-sec-list').innerHTML=tb;$('#rrg-sec-list').querySelectorAll('[data-etf]').forEach(x=>x.onclick=()=>openEtf(x.dataset.etf));
+  if(!E.length){el.innerHTML='<p class="note">El gráfico aparece después de la próxima corrida del análisis diario.</p>';$('#rrg-sec-panel').innerHTML='';$('#rrg-sec-list').innerHTML='';return}
+  const dates=S.scr.rrg_dates||[];
+  const all=[];E.forEach(e=>e.rrg.forEach(p=>all.push(p)));
+  const xs=all.map(p=>p[0]),ys=all.map(p=>p[1]);
+  const dx=Math.max(1.5,...xs.map(v=>Math.abs(v-100)))*1.1,dy=Math.max(1.5,...ys.map(v=>Math.abs(v-100)))*1.1;
+  const prev=S.mmSec&&S.mmSec.selected;
+  S.mmSec=motionMap({el,panel:$('#rrg-sec-panel'),H:480,bx:[100-dx,100+dx],by:[100-dy,100+dy],cx:100,cy:100,aria:'Rotación sectorial',
+    quads:[{left:1,top:1,col:QCOL.Mejorando,label:'Mejorando'},{left:0,top:1,col:QCOL.Liderando,label:'Liderando'},{left:0,top:0,col:'#b98a00',label:'Perdiendo impulso'},{left:1,top:0,col:QCOL.Rezagado,label:'Rezagado'}],
+    xLabel:'← pierde contra el S&P 500 · fuerza relativa · le gana al S&P 500 →   ↕ impulso',
+    items:E.map(e=>({id:e.etf,pts:e.rrg,r:8,label:e.etf,title:`${e.etf} · ${e.sector}`,e})),
+    zoneOf:qOf,zcol:QCOL,startLabel:'hace 6 meses',
+    emptyHtml:'<div class="mm-empty"><b>Tocá un sector</b> en el gráfico o en la lista para ver su recorrido de los últimos 6 meses.</div>',
+    panelHtml:(it,wk,z,end)=>{const e=it.e,p0=e.rrg[0];return `<div class="mm-h"><b>${esc(e.etf)}</b> <span class="note">${esc(e.sector)}</span><button class="close" data-mm="close" aria-label="Cerrar" style="position:static;width:28px;height:28px;margin-left:auto">✕</button></div>
+      <div class="mm-date">${end?'Hoy':'Semana del '+fmtWeek(dates[wk])}</div>
+      <div class="mm-zone" style="background:${QCOL[z]}1f;color:${QCOL[z]}">${esc(z)}</div>
+      <div class="kv" style="grid-template-columns:1fr;margin-top:8px">
+        <div><span>Hace 6 meses</span><b>${esc(qOf(p0[0],p0[1]))}</b></div>
+        <div><span>Hoy</span><b>${esc(e.fase)}</b></div>
+        <div><span>Hacia dónde va</span><b>${esc(e.head||'—')}</b></div>
+        <div><span>vs S&amp;P 3 meses</span><b class="${cls(e.rs3)}">${pct(e.rs3,1)}</b></div>
+        <div><span>Puntaje técnico</span><b>${Math.round(e.at)}</b></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="chip" data-mm="play">↻ Repetir</button><button class="chip on" data-mm="open">Ver ficha</button></div>`},
+    onOpen:id=>openEtf(id)});
+  const tb=E.map(e=>`<button class="sc" data-etf="${esc(e.etf)}" style="padding:7px 10px"><div class="top"><span class="nm">${esc(e.sector)}</span><span class="tk">${esc(e.etf)}</span></div><div class="ln"><span class="fase ${faseCls(e.fase)}">${esc(e.fase)}</span><b>${esc(e.head||'')}</b></div></button>`).join('');
+  $('#rrg-sec-list').innerHTML=tb;
+  $('#rrg-sec-list').querySelectorAll('[data-etf]').forEach(x=>x.onclick=()=>{S.mmSec.select(x.dataset.etf);$('#rrg-sec').scrollIntoView({behavior:'smooth',block:'center'})});
+  if(prev)S.mmSec.select(prev,{noAnim:true});
 }
-function playRot(){
-  const E=(S.scr&&S.scr.etfs||[]).filter(e=>e.rrg&&e.rrg.length);if(!E.length)return;
-  const N=E[0].rrg.length,btn=$('#rrg-play');
-  if(S.rs.timer){clearInterval(S.rs.timer);S.rs.timer=null;btn.textContent='▶ Ver la película de 6 meses';return}
-  S.rs.cur=Math.min(S.rs.tail,N-1);btn.textContent='❚❚ Pausa';renderRotSec();
-  S.rs.timer=setInterval(()=>{if(S.rs.cur>=N-1){clearInterval(S.rs.timer);S.rs.timer=null;btn.textContent='▶ Ver la película de 6 meses';return}S.rs.cur++;renderRotSec()},450);
-}
-S.vm={tail:8,cur:null,timer:null,reg:'us',sec:'',flt:'all'};
-const ZCOL={Compra:'#0f9d58',Mantener:'#e0a800',Vigilar:'#1d7af3',Evitar:'#d93025'};
-const vmZone=(x,y)=>x<0?(y>=0?'Compra':'Vigilar'):(y>=0?'Mantener':'Evitar');
-const VMF={all:o=>true,new:o=>o.vm_st==='Recién entró a zona de compra',buy:o=>o.vm_z==='Compra',fair:o=>o.vm_st==='Llegando a su valor justo'||o.vm_st==='Alcanzó su valor justo',turn:o=>o.vm_st==='Girando: el momentum mejora'};
-function vmSvg(items,b){
-  const W=680,H=540,L=12,R=12,T=12,B=34;
-  const X=v=>L+(Math.max(b.x0,Math.min(b.x1,v))-b.x0)/(b.x1-b.x0)*(W-L-R),Y=v=>T+(1-(Math.max(-100,Math.min(100,v))+100)/200)*(H-T-B);
-  const cx=X(0),cy=Y(0);
-  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Mapa de valor y momentum">
-  <rect x="${L}" y="${T}" width="${cx-L}" height="${cy-T}" fill="#0f9d58" opacity=".09"/>
-  <rect x="${cx}" y="${T}" width="${W-R-cx}" height="${cy-T}" fill="#e0a800" opacity=".09"/>
-  <rect x="${L}" y="${cy}" width="${cx-L}" height="${H-B-cy}" fill="#1d7af3" opacity=".07"/>
-  <rect x="${cx}" y="${cy}" width="${W-R-cx}" height="${H-B-cy}" fill="#d93025" opacity=".07"/>
-  <line x1="${L}" x2="${W-R}" y1="${cy}" y2="${cy}" style="stroke:var(--muted)" stroke-width=".6" opacity=".6"/>
-  <line x1="${cx}" x2="${cx}" y1="${T}" y2="${H-B}" style="stroke:var(--ink)" stroke-width="1.2" stroke-dasharray="6 4" opacity=".55"/>
-  <text x="${cx+5}" y="${cy-6}" font-size="11" style="fill:var(--muted)">valor justo</text>
-  <text x="${L+8}" y="${T+18}" font-size="13" font-weight="700" style="paint-order:stroke;stroke:var(--card);stroke-width:4px" fill="#0f9d58">Compra · barata y subiendo</text>
-  <text x="${W-R-8}" y="${T+18}" font-size="13" font-weight="700" style="paint-order:stroke;stroke:var(--card);stroke-width:4px" fill="#b98a00" text-anchor="end">Mantener · sin margen</text>
-  <text x="${L+8}" y="${H-B-10}" font-size="13" font-weight="700" style="paint-order:stroke;stroke:var(--card);stroke-width:4px" fill="#1d7af3">Vigilar · barata pero débil</text>
-  <text x="${W-R-8}" y="${H-B-10}" font-size="13" font-weight="700" style="paint-order:stroke;stroke:var(--card);stroke-width:4px" fill="#d93025" text-anchor="end">Evitar · cara y cayendo</text>`;
-  [-0.5,-0.4,-0.3,-0.2,-0.1,0.1,0.2,0.3,0.4,0.5].filter(v=>(b.x1>0.35?Math.round(v*10)%2===0:true)).forEach(v=>{if(v>b.x0&&v<b.x1)s+=`<text x="${X(v)}" y="${H-B+14}" font-size="10.5" text-anchor="middle" style="fill:var(--muted)">${v>0?'+':''}${v*100}%</text>`});
-  s+=`<text x="${W/2}" y="${H-4}" font-size="11.5" text-anchor="middle" style="fill:var(--muted)">← barata (descuento frente a su valor justo) · cara (premio) →    ↕ momentum técnico</text>`;
-  items.filter(i=>i.tail&&i.pts.length>1).forEach(i=>{
-    const P=i.pts.map(p=>[X(p[0]),Y(p[1])]);
-    for(let k=1;k<P.length;k++){const op=(0.12+0.6*k/(P.length-1)).toFixed(2),w=(0.8+2*k/(P.length-1)).toFixed(1);
-      s+=`<line x1="${P[k-1][0].toFixed(1)}" y1="${P[k-1][1].toFixed(1)}" x2="${P[k][0].toFixed(1)}" y2="${P[k][1].toFixed(1)}" stroke="${i.color}" stroke-width="${w}" opacity="${op}" stroke-linecap="round"/>`}
-  });
-  items.forEach(i=>{const p=i.pts[i.pts.length-1];if(!p)return;
-    s+=`<circle class="rrgpt" data-id="${esc(i.id)}" cx="${X(p[0])}" cy="${Y(p[1])}" r="${i.r}" fill="${i.color}" stroke="${i.hl?'var(--ink)':'#fff'}" stroke-width="${i.hl?1.6:.8}" opacity="${i.op}" style="cursor:pointer"><title>${esc(i.title)}</title></circle>`;
-    if(i.label)s+=`<text x="${X(p[0])+i.r+3}" y="${Y(p[1])+4}" font-size="11" font-weight="700" style="fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px;pointer-events:none">${esc(i.label)}</text>`;
-  });
-  return s+'</svg>';
-}
+
+/* ---- Acciones: valor y momentum ---- */
+S.vm={reg:'us',sec:'',flt:'buy'};S.mmVm=null;
+const VMF={buy:o=>o.vm_z==='Compra',new:o=>o.vm_st==='Recién entró a zona de compra',fair:o=>o.vm_st==='Llegando a su valor justo'||o.vm_st==='Alcanzó su valor justo',turn:o=>o.vm_st==='Girando: el momentum mejora',all:o=>true};
+const VMT={buy:'En zona de compra',new:'Recién entraron a zona de compra',fair:'Llegando o llegaron a su valor justo',turn:'Por girar: baratas con momentum mejorando',all:'Todas'};
 function renderVM(){
   const el=$('#vm-map');if(!el)return;
   if(!S.scr){el.innerHTML='';return}
   const dates=S.scr.vm_dates||[],N=dates.length;
   let rows=S.scr.rows.filter(r=>r.vm&&r.vm.length).map(enrich);
-  if(!rows.length||!N){el.innerHTML='<p class="note">El mapa aparece después de la próxima corrida del análisis diario.</p>';$('#tb-vm').innerHTML='';$('#vm-ctl2').classList.add('hide');return}
-  $('#vm-ctl2').classList.remove('hide');
+  if(!rows.length){el.innerHTML='<p class="note">El mapa aparece después de la próxima corrida del análisis diario.</p>';$('#tb-vm').innerHTML='';$('#vm-panel').innerHTML='';return}
   rows=rows.filter(o=>(S.vm.reg==='us'?o.region==='EE.UU.':o.region!=='EE.UU.')&&(!S.vm.sec||o.sector===S.vm.sec));
-  if(S.vm.cur==null||S.vm.cur>N-1)S.vm.cur=N-1;
-  const cur=S.vm.cur,t=S.vm.tail,live=cur===N-1,f=VMF[S.vm.flt];
-  const sl=o=>{const off=N-o.vm.length,li=cur-off;return li<0?[]:o.vm.slice(Math.max(0,li-t),li+1)};
-  const allx=[];rows.forEach(o=>sl(o).forEach(p=>allx.push(p[0])));allx.sort((a,b)=>a-b);
-  const q=fr=>allx.length?allx[Math.round(fr*(allx.length-1))]:0;
-  const m=Math.min(0.6,Math.max(0.25,Math.abs(q(.05)),Math.abs(q(.95))))*1.1;const b={x0:-m,x1:m};
+  const xs=rows.map(o=>o.vm[o.vm.length-1][0]).sort((a,b)=>a-b);
+  const q=f=>xs.length?xs[Math.round(f*(xs.length-1))]:0;
+  const m=Math.min(0.6,Math.max(0.25,Math.abs(q(.05)),Math.abs(q(.95))))*1.12;
   const mc=rows.map(o=>o.mcap||0).filter(x=>x>0).sort((a,b)=>a-b),mmax=mc[mc.length-1]||1;
-  const hl=new Set(rows.filter(f).map(o=>o.t));const anyF=S.vm.flt!=='all';
-  const lab=new Set(rows.filter(o=>o.vm_z==='Compra'&&(!anyF||hl.has(o.t))).sort((a,b)=>(b.fair_up||0)-(a.fair_up||0)).slice(0,10).map(o=>o.t));
-  const items=rows.map(o=>{const pts=sl(o);if(!pts.length)return null;const last=pts[pts.length-1],z=vmZone(last[0],last[1]),h=hl.has(o.t);
-    return {id:o.t,pts,color:ZCOL[z],r:o.mcap?3+6*Math.sqrt(o.mcap/mmax):3.5,tail:anyF?h:(z==='Compra'||S.vm.timer!=null),op:anyF&&!h?.25:.85,hl:anyF&&h,label:live&&lab.has(o.t)?o.t:'',
-      title:`${o.t} · ${o.name} · ${z} · ${pct(last[0],1)} vs valor justo · momentum ${Math.round(last[1])}`}}).filter(Boolean)
-    .sort((a,b)=>(a.hl?1:0)-(b.hl?1:0)||(a.tail?1:0)-(b.tail?1:0));
-  el.innerHTML=vmSvg(items,b);
-  el.querySelectorAll('.rrgpt').forEach(c=>c.onclick=()=>openDetail(c.dataset.id));
-  const s=$('#vm-week');s.max=N-1;s.value=cur;
-  const dt=dates[cur]?new Date(dates[cur]+'T12:00:00'):null;
-  $('#vm-date').textContent=dt?`Semana del ${dt.toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'})}${live?' (actual)':''}`:'';
+  const lab=new Set(rows.filter(o=>o.vm_z==='Compra').sort((a,b)=>(b.fair_up||0)*(b.af||0)-(a.fair_up||0)*(a.af||0)).slice(0,8).map(o=>o.t));
   const cnt={};rows.forEach(o=>{cnt[o.vm_z]=(cnt[o.vm_z]||0)+1});
-  $('#vm-count').innerHTML=['Compra','Mantener','Vigilar','Evitar'].map(z=>`<span class="fase" style="background:${ZCOL[z]}22;color:${ZCOL[z]}">${z} ${cnt[z]||0}</span>`).join(' ');
-  const list=rows.filter(o=>anyF?f(o):o.vm_z==='Compra');
+  $('#vm-count').innerHTML=['Compra','Mantener','Vigilar','Evitar'].map(z=>`<span class="fase" style="background:${ZCOL[z]}1f;color:${ZCOL[z]}">${z} ${cnt[z]||0}</span>`).join(' ');
+  const ticks=[-0.5,-0.4,-0.3,-0.2,-0.1,0.1,0.2,0.3,0.4,0.5].filter(v=>m>0.35?Math.round(v*10)%2===0:true).map(v=>({v,t:(v>0?'+':'')+Math.round(v*100)+'%'}));
+  const prev=S.mmVm&&S.mmVm.selected;
+  S.mmVm=motionMap({el,panel:$('#vm-panel'),H:500,bx:[-m,m],by:[-100,100],cx:0,cy:0,cxStrong:1,cxLabel:'valor justo',aria:'Mapa de valor y momentum',dotOp:'.75',
+    quads:[{left:1,top:1,col:ZCOL.Compra,label:'Compra · barata y subiendo'},{left:0,top:1,col:'#b98a00',label:'Mantener · sin margen'},{left:0,top:0,col:ZCOL.Evitar,label:'Evitar · cara y cayendo'},{left:1,top:0,col:ZCOL.Vigilar,label:'Vigilar · barata pero débil'}],
+    xLabel:'← barata (descuento vs valor justo) · cara (premio) →   ↕ momentum técnico',ticks,
+    items:rows.map(o=>({id:o.t,pts:o.vm.slice(-(N||27)),r:o.mcap?3+6*Math.sqrt(o.mcap/mmax):3.5,label:lab.has(o.t)?o.t:'',title:`${o.t} · ${o.name} · ${o.vm_z}`,o})),
+    zoneOf:vmZone,zcol:ZCOL,startLabel:'hace 6 meses',
+    emptyHtml:'<div class="mm-empty"><b>Tocá una acción</b> en el mapa o en la tabla para ver cómo recorrió el ciclo en los últimos 6 meses.<div class="note" style="margin-top:8px">Ciclo típico: Evitar → Vigilar → Compra → Mantener.</div></div>',
+    panelHtml:(it,wk,z,end)=>{const o=it.o,p=it.pts[Math.min(wk,it.pts.length-1)],off=(N||it.pts.length)-it.pts.length;
+      return `<div class="mm-h"><b>${esc(o.t)}</b> <span class="note" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</span><button class="close" data-mm="close" aria-label="Cerrar" style="position:static;width:28px;height:28px;margin-left:auto;flex:none">✕</button></div>
+      <div class="mm-date">${end?'Hoy':'Semana del '+fmtWeek(dates[wk+off])}</div>
+      <div class="mm-zone" style="background:${ZCOL[z]}1f;color:${ZCOL[z]}">${esc(z)}</div>
+      <div class="kv" style="grid-template-columns:1fr;margin-top:8px">
+        <div><span>Precio vs valor justo</span><b>${pct(p[0],1)}</b></div>
+        <div><span>Momentum</span><b>${Math.round(p[1])}</b></div>
+        ${end?`<div><span>Etapa</span><b>${esc(o.vm_st)}</b></div>
+        <div><span>Valor justo estimado</span><b>US$ ${fmt(o.fair)}</b></div>
+        <div><span>Recorrido restante</span><b class="${cls(o.fair_up)}">${pct(o.fair_up,1)}</b></div>
+        <div><span>RSI · AF · Puntaje</span><b>${fmt(o.rsi,0)} · ${Math.round(o.af)} · ${Math.round(o.score)}</b></div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="chip" data-mm="play">↻ Repetir</button><button class="chip on" data-mm="open">Ver ficha</button></div>`},
+    onOpen:id=>openDetail(id)});
+  const f=VMF[S.vm.flt],list=rows.filter(f);
+  list.forEach(o=>o.mom=o.vm[o.vm.length-1][1]);
   const cols=[
     {k:'fav',h:'',f:o=>star(o.t)},
     {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b> <span class="note">${esc(o.name)}</span>`},
-    {k:'vm_st',h:'Etapa',f:o=>`<span class="fase" style="background:${ZCOL[o.vm_z]}22;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span> <span class="note">${esc(o.vm_st)}</span>`},
+    {k:'vm_st',h:'Etapa',f:o=>`<span class="fase" style="background:${ZCOL[o.vm_z]}1f;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span> <span class="note">${esc(o.vm_st)}</span>`},
     {k:'vm_zp',h:'Hace 8 sem.',f:o=>`<span class="note">${esc(o.vm_zp||'—')}</span>`},
     {k:'fair_up',h:'Recorrido a valor justo',n:1,f:o=>o.fair_up==null?'—':`<b class="${cls(o.fair_up)}">${pct(o.fair_up,1)}</b>`},
-    {k:'mom',h:'Momentum',n:1,f:o=>fmt(o.vm[o.vm.length-1][1],0)},
+    {k:'mom',h:'Momentum',n:1,f:o=>fmt(o.mom,0)},
     {k:'rsi',h:'RSI',n:1,f:o=>fmt(o.rsi,0)},
     {k:'af',h:'AF',n:1,f:o=>Math.round(o.af)},
     {k:'score',h:'Puntaje',n:1,f:o=>Math.round(o.score)},
     {k:'sector',h:'Sector',f:o=>esc(o.sector)},
     {k:'hasCed',h:'Argentina',f:cedCell}
   ];
-  list.forEach(o=>o.mom=o.vm[o.vm.length-1][1]);
-  table($('#tb-vm'),'vm',cols,list);
-  $('#vm-tbl-title').textContent={all:'Papeles en zona de compra',new:'Recién entraron a zona de compra',buy:'En zona de compra',fair:'Llegando o llegaron a su valor justo',turn:'Por girar: baratas con momentum mejorando'}[S.vm.flt]+` (${list.length})`;
+  table($('#tb-vm'),'vm',cols,list,null,150);
+  $('#tb-vm').querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>{S.mmVm.select(tr.dataset.t);$('#vm-map').scrollIntoView({behavior:'smooth',block:'center'})});
+  $('#vm-tbl-title').textContent=`${VMT[S.vm.flt]} (${list.length})`;
+  if(prev)S.mmVm.select(prev,{noAnim:true});
 }
-function playVM(){
-  const N=(S.scr&&S.scr.vm_dates||[]).length,btn=$('#vm-play');if(!N)return;
-  if(S.vm.timer){clearInterval(S.vm.timer);S.vm.timer=null;btn.textContent='▶ Ver el movimiento de 6 meses';renderVM();return}
-  S.vm.cur=0;btn.textContent='❚❚ Pausa';S.vm.timer=1;renderVM();
-  S.vm.timer=setInterval(()=>{if(S.vm.cur>=N-1){clearInterval(S.vm.timer);S.vm.timer=null;btn.textContent='▶ Ver el movimiento de 6 meses';renderVM();return}S.vm.cur++;renderVM()},420);
-}
-$$('[data-vmt]').forEach(b=>b.onclick=()=>{$$('[data-vmt]').forEach(x=>x.classList.toggle('on',x===b));S.vm.tail=+b.dataset.vmt;renderVM()});
 $$('[data-vmr]').forEach(b=>b.onclick=()=>{$$('[data-vmr]').forEach(x=>x.classList.toggle('on',x===b));S.vm.reg=b.dataset.vmr;renderVM()});
 $$('[data-vmf]').forEach(b=>b.onclick=()=>{$$('[data-vmf]').forEach(x=>x.classList.toggle('on',x===b));S.vm.flt=b.dataset.vmf;renderVM()});
-$('#vm-week').oninput=e=>{S.vm.cur=+e.target.value;renderVM()};
-$('#vm-play').onclick=playVM;
 $('#vm-sec').onchange=e=>{S.vm.sec=e.target.value;renderVM()};
-$$('[data-rt]').forEach(b=>b.onclick=()=>{$$('[data-rt]').forEach(x=>x.classList.toggle('on',x===b));S.rs.tail=+b.dataset.rt;renderRotSec()});
-$('#rrg-week').oninput=e=>{S.rs.cur=+e.target.value;renderRotSec()};
-$('#rrg-play').onclick=playRot;
+
 function squarify(items,x,y,w,h){
   /* items: [{v,...}] ordenados desc; devuelve [{item,x,y,w,h}] */
   const out=[];const tot=items.reduce((a,b)=>a+b.v,0);if(!tot||w<=0||h<=0)return out;
