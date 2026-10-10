@@ -168,6 +168,7 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   <nav class="tabs">
     <button class="tab on" data-t="opo">Oportunidades AT + AF</button>
     <button class="tab" data-t="map">Mapa de calor</button>
+    <button class="tab" data-t="rot">Rotación</button>
     <button class="tab" data-t="acc">Acciones</button>
     <button class="tab" data-t="mep">Dólar MEP por bono</button>
     <button class="tab" data-t="ced">CEDEARs desarbitrados</button>
@@ -226,6 +227,43 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
       </div>
       <div id="heat" class="tmap"></div>
       <div id="tmtip" class="tmtip hide"></div>
+    </div>
+  </section>
+
+  <!-- ROTACION -->
+  <section id="t-rot" class="hide">
+    <div class="card">
+      <h2>Rotación sectorial</h2>
+      <p class="sub">Cada punto es un ETF sectorial y la cola es su recorrido semanal. Horizontal: si le gana o le pierde al S&amp;P 500. Vertical: si viene acelerando o frenándose. Los sectores suelen girar en sentido horario: Mejorando → Liderando → Perdiendo impulso → Rezagado.</p>
+      <div class="bar" id="rrg-sec-ctl">
+        <span class="note">Cola:</span>
+        <button class="chip" data-rt="4">4 semanas</button>
+        <button class="chip on" data-rt="8">8 semanas</button>
+        <button class="chip" data-rt="13">3 meses</button>
+        <button class="chip" data-rt="26">6 meses</button>
+        <button class="chip" id="rrg-play" style="margin-left:auto">▶ Ver la película de 6 meses</button>
+      </div>
+      <div id="rrg-sec"></div>
+      <div class="bar" style="margin-top:8px"><input type="range" id="rrg-week" min="0" max="26" value="26" style="flex:1"><span class="note" id="rrg-date" style="min-width:190px;text-align:right"></span></div>
+      <div id="rrg-sec-list" class="secgrid" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <h2>Rotación de acciones</h2>
+      <p class="sub">Misma lógica, para cada acción contra el S&amp;P 500. El color es la valuación según el AF: <b style="color:#0f9d58">verde</b> barata frente a su sector, <b style="color:#b98a00">amarillo</b> neutral, <b style="color:#d93025">roja</b> cara. Las <b style="color:#1d7af3">candidatas de rotación</b>, con borde azul y su cola, son las que van rumbo a Liderando (o empiezan a girar desde Rezagado) y además tienen buena valuación y AF de 50 o más.</p>
+      <div class="bar">
+        <button class="chip on" data-rreg="us">S&amp;P 500</button>
+        <button class="chip" data-rreg="latam">ADRs AR + BR</button>
+        <select id="rot-sec"><option value="">Todos los sectores</option></select>
+        <label class="note" style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="rot-only"> Solo candidatas</label>
+        <span class="note">Cola:</span>
+        <button class="chip on" data-rat="4">4 semanas</button>
+        <button class="chip" data-rat="8">8 semanas</button>
+        <span class="note" id="rot-count" style="margin-left:auto"></span>
+      </div>
+      <div id="rrg-stk"></div>
+      <h3 style="margin:16px 0 8px;font-size:15px">Candidatas de rotación con buena valuación</h3>
+      <div class="tw"><table id="tb-rot"></table></div>
+      <p class="note" style="margin-top:10px">El gráfico de rotación mide momentum relativo, no valuación: por eso se combina con el AF. Que una acción vaya rumbo a Liderando no garantiza que llegue. Herramienta de screening, no es una recomendación.</p>
     </div>
   </section>
 
@@ -337,7 +375,7 @@ function parseRatio(s){const m=String(s).match(/^\s*(\d+(?:[.,]\d+)?)\s*:\s*(\d+
 async function getJ(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(url+' → '+r.status);return r.json()}
 
 /* ---------- state ---------- */
-const S={data:{},ref:{},sort:{acc:['vol',-1],mep:['liq',-1],ced:['desv',1],top:['rank',1],uni:['score',-1]},
+const S={data:{},ref:{},sort:{acc:['vol',-1],mep:['liq',-1],ced:['desv',1],top:['rank',1],uni:['score',-1],rot:['rot_score',-1]},
   fav:new Set(store('fav')||[]),ratioOv:store('ratios')||{},pa:'lider',lq:'1',cf:'all',cclsrc:'bono'};
 function saveFav(){store('fav',[...S.fav])}
 
@@ -346,7 +384,7 @@ function saveFav(){store('fav',[...S.fav])}
 $('#theme').onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);store('theme',n)};
 
 /* ---------- tabs & filters ---------- */
-$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','map','acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='map')renderHeat()});
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','map','rot','acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='map')renderHeat();if(b.dataset.t==='rot'){renderRotSec();renderRotStk()}});
 function chipGroup(attr,key,fn){$$('[data-'+attr+']').forEach(b=>b.onclick=()=>{$$('[data-'+attr+']').forEach(x=>x.classList.toggle('on',x===b));S[key]=b.dataset[attr];fn()})}
 chipGroup('pa','pa',renderAcc);chipGroup('lq','lq',renderMep);chipGroup('cf','cf',renderCed);
 $('#q-acc').oninput=renderAcc;$('#q-mep').oninput=renderMep;$('#q-ced').oninput=renderCed;
@@ -361,7 +399,7 @@ function table(el,key,cols,rows,rowCls,limit){
   if(!r.length)h+=`<tr><td colspan="${cols.length}" class="note" style="text-align:center;padding:20px">Sin datos para mostrar.</td></tr>`;
   r.forEach(o=>{h+=`<tr class="${rowCls?rowCls(o):''}"${o.t?` data-t="${o.t}"`:''}>`+cols.map(c=>`<td class="${c.n?'n':''}">${c.f?c.f(o):(o[c.k]??'—')}</td>`).join('')+'</tr>'});
   el.innerHTML=h+'</tbody>';
-  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(k==='fav')return;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];({acc:renderAcc,mep:renderMep,ced:renderCed,top:renderTop,uni:renderUni})[key]()});
+  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(k==='fav')return;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];({acc:renderAcc,mep:renderMep,ced:renderCed,top:renderTop,uni:renderUni,rot:renderRotStk})[key]()});
   el.querySelectorAll('.star').forEach(b=>b.onclick=e=>{e.stopPropagation();const s=b.dataset.s;S.fav.has(s)?S.fav.delete(s):S.fav.add(s);saveFav();renderAcc();renderCed();renderTop();renderUni()});
   el.querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.t));
   el.querySelectorAll('.edit').forEach(b=>b.onclick=e=>{e.stopPropagation();editRatio(b.dataset.s)});
@@ -518,13 +556,14 @@ async function loadScreener(){
     S.scr=await r.json();
     const secs=[...new Set(S.scr.rows.map(x=>x.sector))].sort();
     $('#f-sec').innerHTML='<option value="">Todos los sectores</option>'+secs.map(x=>`<option>${esc(x)}</option>`).join('');
+    $('#rot-sec').innerHTML='<option value="">Todos los sectores</option>'+secs.map(x=>`<option>${esc(x)}</option>`).join('');
     const g=new Date(S.scr.generated);
     $('#opo-meta').innerHTML=`Análisis de ${S.scr.analyzed} papeles (S&amp;P 500 + ADRs argentinos y brasileños) al cierre del ${g.toLocaleDateString('es-AR')} ${g.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}. Precio y variación del día se actualizan en vivo.`;
   }catch(e){
     S.scr=null;
     $('#opo-meta').innerHTML='Todavía no hay análisis generado. En GitHub entrá a <b>Actions → Screener diario PROSPEI → Run workflow</b> y esperá unos 15 minutos.';
   }
-  renderTop();renderHeat();renderUni();
+  renderTop();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderRotStk()}
 }
 function liveOf(t){const us=S.data.us||{};for(const k of [t,t.replace('-','.'),t.replace('-','')]){const x=us[k];if(x&&ok(x.c))return x}return null}
 function cedearOf(r){
@@ -645,6 +684,108 @@ function openEtf(tk){
   const sb=$('#see-sec');if(sb)sb.onclick=()=>{closeDetail();$('#f-sec').value=e.sector;$('#f-reg').value='';S.uniLimit=100;renderUni();$$('.tab').find(b=>b.dataset.t==='opo').click();setTimeout(()=>$('#tb-uni').scrollIntoView({behavior:'smooth'}),50)};
   $('#modal').classList.remove('hide');document.body.style.overflow='hidden';
 }
+/* ---------- Rotación (RRG) ---------- */
+S.rs={tail:8,cur:null,timer:null};S.ra={tail:4,sec:'',reg:'us',only:false};
+const QCOL={Liderando:'#0f9d58',Mejorando:'#1d7af3','Perdiendo impulso':'#e0a800',Rezagado:'#d93025'};
+const qOf=(x,y)=>x>=100?(y>=100?'Liderando':'Perdiendo impulso'):(y>=100?'Mejorando':'Rezagado');
+const valCol=v=>v==null?'#8a94a6':v>=0.65?'#0f9d58':v>=0.4?'#e0a800':'#d93025';
+function rrgBounds(pts){
+  const xs=pts.map(p=>p[0]).sort((a,b)=>a-b),ys=pts.map(p=>p[1]).sort((a,b)=>a-b);
+  const q=(a,f)=>a[Math.max(0,Math.min(a.length-1,Math.round(f*(a.length-1))))];
+  const dx=Math.max(1.5,Math.abs(q(xs,.02)-100),Math.abs(q(xs,.98)-100))*1.12,dy=Math.max(1.5,Math.abs(q(ys,.02)-100),Math.abs(q(ys,.98)-100))*1.12;
+  return {x0:100-dx,x1:100+dx,y0:100-dy,y1:100+dy};
+}
+function rrgSvg(items,b,opt){
+  opt=opt||{};const W=680,H=opt.h||500,L=12,R=12,T=12,B=30;
+  const X=v=>L+(Math.max(b.x0,Math.min(b.x1,v))-b.x0)/(b.x1-b.x0)*(W-L-R),Y=v=>T+(1-(Math.max(b.y0,Math.min(b.y1,v))-b.y0)/(b.y1-b.y0))*(H-T-B);
+  const cx=X(100),cy=Y(100);
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="Gráfico de rotación">
+  <rect x="${L}" y="${T}" width="${cx-L}" height="${cy-T}" fill="#1d7af3" opacity=".07"/>
+  <rect x="${cx}" y="${T}" width="${W-R-cx}" height="${cy-T}" fill="#0f9d58" opacity=".08"/>
+  <rect x="${cx}" y="${cy}" width="${W-R-cx}" height="${H-B-cy}" fill="#e0a800" opacity=".09"/>
+  <rect x="${L}" y="${cy}" width="${cx-L}" height="${H-B-cy}" fill="#d93025" opacity=".07"/>
+  <line x1="${L}" x2="${W-R}" y1="${cy}" y2="${cy}" style="stroke:var(--muted)" stroke-width=".6" opacity=".6"/>
+  <line x1="${cx}" x2="${cx}" y1="${T}" y2="${H-B}" style="stroke:var(--muted)" stroke-width=".6" opacity=".6"/>
+  <text x="${L+8}" y="${T+18}" font-size="13" font-weight="700" fill="#1d7af3">Mejorando</text>
+  <text x="${W-R-8}" y="${T+18}" font-size="13" font-weight="700" fill="#0f9d58" text-anchor="end">Liderando</text>
+  <text x="${W-R-8}" y="${H-B-10}" font-size="13" font-weight="700" fill="#b98a00" text-anchor="end">Perdiendo impulso</text>
+  <text x="${L+8}" y="${H-B-10}" font-size="13" font-weight="700" fill="#d93025">Rezagado</text>
+  <text x="${W/2}" y="${H-9}" font-size="11.5" text-anchor="middle" style="fill:var(--muted)">← pierde contra el S&amp;P 500 · Fuerza relativa · le gana al S&amp;P 500 →</text>`;
+  items.filter(i=>i.tail&&i.pts.length>1).forEach(i=>{
+    const d=i.pts.map((p,k)=>(k?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('');
+    s+=`<path d="${d}" fill="none" stroke="${i.color}" stroke-width="${i.tw||2}" opacity=".55" stroke-linejoin="round" stroke-linecap="round"/>`;
+    i.pts.slice(0,-1).forEach(p=>{s+=`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="2.2" fill="${i.color}" opacity=".55"/>`});
+  });
+  items.forEach(i=>{const p=i.pts[i.pts.length-1];if(!p)return;
+    s+=`<circle class="rrgpt" data-id="${esc(i.id)}" cx="${X(p[0])}" cy="${Y(p[1])}" r="${i.r||6}" fill="${i.color}" ${i.ring?`stroke="${i.ring}" stroke-width="2.5"`:'stroke="#fff" stroke-width="1"'} style="cursor:pointer" ${i.op?`opacity="${i.op}"`:''}><title>${esc(i.title||i.label)}</title></circle>`;
+    if(i.label)s+=`<text x="${X(p[0])+(i.r||6)+4}" y="${Y(p[1])+4}" font-size="${i.fs||12}" font-weight="700" style="fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px;pointer-events:none">${esc(i.label)}</text>`;
+  });
+  return s+'</svg>';
+}
+function renderRotSec(){
+  const el=$('#rrg-sec');if(!el)return;
+  const E=(S.scr&&S.scr.etfs||[]).filter(e=>e.rrg&&e.rrg.length);
+  if(!E.length){el.innerHTML='<p class="note">El gráfico aparece después de la próxima corrida del análisis diario.</p>';$('#rrg-sec-ctl').classList.add('hide');return}
+  $('#rrg-sec-ctl').classList.remove('hide');
+  const N=E[0].rrg.length;if(S.rs.cur==null||S.rs.cur>N-1)S.rs.cur=N-1;
+  const cur=S.rs.cur,t=S.rs.tail,dates=S.scr.rrg_dates||[];
+  const all=[];E.forEach(e=>e.rrg.forEach(p=>all.push(p)));const b=rrgBounds(all);
+  const items=E.map(e=>{const pts=e.rrg.slice(Math.max(0,cur-t),cur+1);const last=pts[pts.length-1];const q=qOf(last[0],last[1]);
+    return {id:e.etf,label:e.etf,pts,color:QCOL[q],tail:true,r:7,title:`${e.etf} · ${e.sector} · ${q}`}});
+  el.innerHTML=rrgSvg(items,b,{h:500});
+  el.querySelectorAll('.rrgpt').forEach(c=>c.onclick=()=>openEtf(c.dataset.id));
+  const sl=$('#rrg-week');sl.max=N-1;sl.value=cur;
+  const dt=dates[cur]?new Date(dates[cur]+'T12:00:00'):null;
+  $('#rrg-date').textContent=dt?`Semana del ${dt.toLocaleDateString('es-AR',{day:'numeric',month:'short',year:'numeric'})}${cur===N-1?' (actual)':''}`:'';
+  const tb=E.map(e=>{const last=e.rrg[cur],q=qOf(last[0],last[1]);return `<button class="sc" data-etf="${esc(e.etf)}" style="padding:7px 10px"><div class="top"><span class="nm">${esc(e.sector)}</span><span class="tk">${esc(e.etf)}</span></div><div class="ln"><span class="fase ${faseCls(q)}">${esc(q)}</span><b>${cur===N-1&&e.head?esc(e.head):''}</b></div></button>`}).join('');
+  $('#rrg-sec-list').innerHTML=tb;$('#rrg-sec-list').querySelectorAll('[data-etf]').forEach(x=>x.onclick=()=>openEtf(x.dataset.etf));
+}
+function playRot(){
+  const E=(S.scr&&S.scr.etfs||[]).filter(e=>e.rrg&&e.rrg.length);if(!E.length)return;
+  const N=E[0].rrg.length,btn=$('#rrg-play');
+  if(S.rs.timer){clearInterval(S.rs.timer);S.rs.timer=null;btn.textContent='▶ Ver la película de 6 meses';return}
+  S.rs.cur=Math.min(S.rs.tail,N-1);btn.textContent='❚❚ Pausa';renderRotSec();
+  S.rs.timer=setInterval(()=>{if(S.rs.cur>=N-1){clearInterval(S.rs.timer);S.rs.timer=null;btn.textContent='▶ Ver la película de 6 meses';return}S.rs.cur++;renderRotSec()},450);
+}
+function renderRotStk(){
+  const el=$('#rrg-stk');if(!el)return;
+  if(!S.scr){el.innerHTML='';return}
+  let rows=S.scr.rows.filter(r=>r.rrg&&r.rrg.length).map(enrich);
+  if(!rows.length){el.innerHTML='<p class="note">El gráfico aparece después de la próxima corrida del análisis diario.</p>';$('#tb-rot').innerHTML='';return}
+  rows=rows.filter(o=>(S.ra.reg==='us'?o.region==='EE.UU.':o.region!=='EE.UU.')&&(!S.ra.sec||o.sector===S.ra.sec));
+  const t=S.ra.tail,cands=rows.filter(o=>o.rot_cand).sort((a,b)=>b.rot_score-a.rot_score);
+  const shown=S.ra.only?cands:rows;
+  const all=[];shown.forEach(o=>o.rrg.slice(-t-1).forEach(p=>all.push(p)));const b=all.length?rrgBounds(all):{x0:95,x1:105,y0:95,y1:105};
+  const mc=rows.map(o=>o.mcap||0).filter(x=>x>0).sort((a,b)=>a-b),mmax=mc[mc.length-1]||1;
+  const top=new Set(cands.slice(0,12).map(o=>o.t));
+  const items=shown.map(o=>{const pts=o.rrg.slice(-t-1),isC=o.rot_cand;const r=o.mcap?3+6*Math.sqrt(o.mcap/mmax):3.5;
+    return {id:o.t,label:top.has(o.t)?o.t:'',pts,color:valCol(o.f_val),tail:isC,tw:1.6,r,ring:isC?'#1d7af3':null,op:isC||S.ra.only?1:.55,fs:11,
+      title:`${o.t} · ${o.name} · ${o.rot_q} (${o.rot_h}) · Valuación ${Math.round((o.f_val||0)*100)} · AF ${Math.round(o.af)}`}})
+    .sort((a,b)=>(a.ring?1:0)-(b.ring?1:0));
+  el.innerHTML=rrgSvg(items,b,{h:540});
+  el.querySelectorAll('.rrgpt').forEach(c=>c.onclick=()=>openDetail(c.dataset.id));
+  $('#rot-count').textContent=`${cands.length} candidatas de ${rows.length} papeles`;
+  const cols=[
+    {k:'fav',h:'',f:o=>star(o.t)},
+    {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b> <span class="note">${esc(o.name)}</span>`},
+    {k:'rot_h',h:'Rotación',f:o=>`<span class="fase ${faseCls(o.rot_q)}">${esc(o.rot_q)}</span> <span class="note">${esc(o.rot_h)}</span>`},
+    {k:'f_val',h:'Valuación',f:o=>sbar(o.f_val*100)},
+    {k:'af',h:'AF',n:1,f:o=>Math.round(o.af)},
+    {k:'at',h:'AT',n:1,f:o=>Math.round(o.at)},
+    {k:'fpe',h:'P/E fwd',n:1,f:o=>o.fpe>0?fmt(o.fpe,1)+'x':'—'},
+    {k:'upside',h:'Potencial',n:1,f:o=>o.n_an>=3&&o.upside!=null?`<span class="${cls(o.upside)}">${pct(o.upside,1)}</span>`:'—'},
+    {k:'sector',h:'Sector',f:o=>esc(o.sector)},
+    {k:'hasCed',h:'Argentina',f:cedCell}
+  ];
+  table($('#tb-rot'),'rot',cols,cands);
+}
+$$('[data-rt]').forEach(b=>b.onclick=()=>{$$('[data-rt]').forEach(x=>x.classList.toggle('on',x===b));S.rs.tail=+b.dataset.rt;renderRotSec()});
+$$('[data-rat]').forEach(b=>b.onclick=()=>{$$('[data-rat]').forEach(x=>x.classList.toggle('on',x===b));S.ra.tail=+b.dataset.rat;renderRotStk()});
+$$('[data-rreg]').forEach(b=>b.onclick=()=>{$$('[data-rreg]').forEach(x=>x.classList.toggle('on',x===b));S.ra.reg=b.dataset.rreg;renderRotStk()});
+$('#rrg-week').oninput=e=>{S.rs.cur=+e.target.value;renderRotSec()};
+$('#rrg-play').onclick=playRot;
+$('#rot-sec').onchange=e=>{S.ra.sec=e.target.value;renderRotStk()};
+$('#rot-only').onchange=e=>{S.ra.only=e.target.checked;renderRotStk()};
 function squarify(items,x,y,w,h){
   /* items: [{v,...}] ordenados desc; devuelve [{item,x,y,w,h}] */
   const out=[];const tot=items.reduce((a,b)=>a+b.v,0);if(!tot||w<=0||h<=0)return out;
@@ -778,6 +919,7 @@ function openDetail(t){
       ${pill('Valuación',o.f_val*100)}${pill('Crecimiento',o.f_gro*100)}${pill('Calidad',o.f_qua*100)}${pill('Solidez financiera',o.f_sol*100)}${pill('Visión analistas',o.f_ana*100)}
     </div>
     ${o.closes?chartSvg(o.closes):'<p class="note">El gráfico está disponible para los papeles del top.</p>'}
+    ${o.rot_q?`<div class="cedbox" style="margin-top:10px">↻ Rotación contra el S&amp;P 500: <span class="fase ${faseCls(o.rot_q)}">${esc(o.rot_q)}</span> · ${esc(o.rot_h)}${o.rot_cand?' · <b style="color:var(--accent)">candidata de rotación con buena valuación</b>':''}</div>`:''}
     <div class="lists">
       <div class="pro"><h4>Por qué aparece como oportunidad</h4><ul>${li(o.pro)}</ul></div>
       <div class="gro"><h4>Perspectiva de crecimiento</h4><ul>${li(o.grow)}</ul></div>
