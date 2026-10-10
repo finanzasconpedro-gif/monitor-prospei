@@ -88,7 +88,16 @@ tr.dim td{opacity:.5}
 .setup{font-size:11.5px;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);white-space:nowrap;font-weight:600}
 tr[data-t]{cursor:pointer}
 .ced-ok{font-size:11px;font-weight:600;color:var(--up)}
-#heat{display:flex;flex-direction:column;gap:10px}
+.tmap{position:relative;width:100%;height:680px;background:#262931;border-radius:10px;overflow:hidden;user-select:none}
+@media (max-width:760px){.tmap{height:1100px}}
+.tsec{position:absolute;border:1px solid #262931;box-sizing:border-box}
+.tsec>span{position:absolute;left:0;right:0;top:0;height:16px;line-height:16px;padding:0 5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#d7dbe3;background:#262931;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc{position:absolute;box-sizing:border-box;border:1px solid #262931;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;cursor:pointer;overflow:hidden;text-align:center;line-height:1.1;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.tc:hover{border:2px solid #f5d76e;z-index:2}
+.tc b{font-weight:700}
+.tmtip{position:fixed;z-index:60;background:#14171e;color:#fff;border:1px solid #3a3f4b;border-radius:8px;padding:8px 10px;font-size:12.5px;pointer-events:none;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.tmtip.hide{display:none}
+.tmtip .row{display:flex;justify-content:space-between;gap:12px}
 .hsec h4{margin:0 0 5px;font-size:12px;color:var(--muted);font-weight:600}
 .hsec h4 b{color:var(--ink)}
 .hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:3px}
@@ -144,6 +153,7 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
 
   <nav class="tabs">
     <button class="tab on" data-t="opo">Oportunidades AT + AF</button>
+    <button class="tab" data-t="map">Mapa de calor</button>
     <button class="tab" data-t="acc">Acciones</button>
     <button class="tab" data-t="mep">Dólar MEP por bono</button>
     <button class="tab" data-t="ced">CEDEARs desarbitrados</button>
@@ -168,18 +178,6 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
     </div>
 
     <div class="card">
-      <h2>Mapa de calor</h2>
-      <p class="sub">Todo el universo agrupado por sector. Tocá un recuadro para ver la ficha.</p>
-      <div class="bar">
-        <button class="chip on" data-hm="score">Puntaje</button>
-        <button class="chip" data-hm="r1d">Var. día</button>
-        <button class="chip" data-hm="r1m">Var. 1 mes</button>
-        <button class="chip" data-hm="r6m">Var. 6 meses</button>
-      </div>
-      <div id="heat"></div>
-    </div>
-
-    <div class="card">
       <h2>Universo completo</h2>
       <p class="sub">S&amp;P 500 + ADRs argentinos y brasileños, con sus puntajes. Ordená por cualquier columna.</p>
       <div class="bar">
@@ -190,6 +188,29 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
       </div>
       <div class="tw"><table id="tb-uni"></table></div>
       <div style="text-align:center;margin-top:10px"><button class="chip" id="more-uni">Mostrar más</button></div>
+    </div>
+  </section>
+
+  <!-- MAPA -->
+  <section id="t-map" class="hide">
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px">
+        <div style="flex:1;min-width:240px"><h2>Mapa de calor</h2><p class="sub" style="margin:0">Cada rectángulo es una empresa: el tamaño es su capitalización y el color, la variación. Tocá uno para ver la ficha.</p></div>
+        <div class="bar" style="margin:0">
+          <button class="chip on" data-hu="us">S&amp;P 500</button>
+          <button class="chip" data-hu="latam">ADRs AR + BR</button>
+        </div>
+      </div>
+      <div class="bar">
+        <button class="chip on" data-hm="r1d">Var. día</button>
+        <button class="chip" data-hm="r1m">1 mes</button>
+        <button class="chip" data-hm="r6m">6 meses</button>
+        <button class="chip" data-hm="r12m">12 meses</button>
+        <button class="chip" data-hm="score">Puntaje PROSPEI</button>
+        <span class="note" id="hm-legend" style="margin-left:auto"></span>
+      </div>
+      <div id="heat" class="tmap"></div>
+      <div id="tmtip" class="tmtip hide"></div>
     </div>
   </section>
 
@@ -310,7 +331,7 @@ function saveFav(){store('fav',[...S.fav])}
 $('#theme').onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);store('theme',n)};
 
 /* ---------- tabs & filters ---------- */
-$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t))});
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','map','acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='map')renderHeat()});
 function chipGroup(attr,key,fn){$$('[data-'+attr+']').forEach(b=>b.onclick=()=>{$$('[data-'+attr+']').forEach(x=>x.classList.toggle('on',x===b));S[key]=b.dataset[attr];fn()})}
 chipGroup('pa','pa',renderAcc);chipGroup('lq','lq',renderMep);chipGroup('cf','cf',renderCed);
 $('#q-acc').oninput=renderAcc;$('#q-mep').oninput=renderMep;$('#q-ced').oninput=renderCed;
@@ -474,7 +495,7 @@ function renderCed(){
 
 /* ---------- Oportunidades AT + AF ---------- */
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-S.scr=null;S.tf='all';S.hm='score';S.uniLimit=100;
+S.scr=null;S.tf='all';S.uniLimit=100;
 async function loadScreener(){
   try{
     const r=await fetch('data.json?v='+Date.now(),{cache:'no-store'});
@@ -554,21 +575,72 @@ function renderUni(){
   $('#more-uni').classList.toggle('hide',rows.length<=S.uniLimit);
   $('#more-uni').textContent=`Mostrar más (${Math.min(S.uniLimit,rows.length)} de ${rows.length})`;
 }
-function renderHeat(){
-  const el=$('#heat');if(!S.scr){el.innerHTML='';return}
-  const m=S.hm,rng={r1d:0.03,r1m:0.10,r6m:0.30}[m];
-  const by={};S.scr.rows.forEach(r=>{(by[r.sector]=by[r.sector]||[]).push(enrich(r))});
-  const order=(S.scr.sectors||[]).map(x=>x.sector).filter(x=>by[x]).concat(Object.keys(by).filter(x=>!(S.scr.sectors||[]).some(y=>y.sector===x)));
-  el.innerHTML=order.map(sec=>{
-    const list=by[sec].sort((a,b)=>(b.mcap||0)-(a.mcap||0));
-    const val=o=>m==='score'?o.score:(m==='r1d'?o.chg:o[m]);
-    const vals=list.map(val).filter(x=>x!=null&&isFinite(x));
-    const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
-    const lab=v=>m==='score'?(v==null?'—':Math.round(v)):pct(v,1);
-    return `<div class="hsec"><h4><b>${esc(sec)}</b> · ${list.length} papeles · promedio ${lab(avg)}</h4><div class="hgrid">${list.map(o=>{const v=val(o);return `<button class="hc" data-t="${esc(o.t)}" style="background:${m==='score'?scoreCol(v):pctCol(v,rng)}" title="${esc(o.name)}"><b>${esc(o.t)}</b>${lab(v)}</button>`}).join('')}</div></div>`;
-  }).join('');
-  el.querySelectorAll('.hc').forEach(b=>b.onclick=()=>openDetail(b.dataset.t));
+function squarify(items,x,y,w,h){
+  /* items: [{v,...}] ordenados desc; devuelve [{item,x,y,w,h}] */
+  const out=[];const tot=items.reduce((a,b)=>a+b.v,0);if(!tot||w<=0||h<=0)return out;
+  const sc=w*h/tot;let rest=items.map(it=>({it,a:it.v*sc}));
+  let X=x,Y=y,W=w,H=h;
+  const worst=(row,len)=>{const s=row.reduce((a,b)=>a+b.a,0),mx=Math.max(...row.map(r=>r.a)),mn=Math.min(...row.map(r=>r.a));return Math.max(len*len*mx/(s*s),(s*s)/(len*len*mn))};
+  while(rest.length){
+    const len=Math.min(W,H);let row=[rest[0]],i=1;
+    while(i<rest.length){const nr=row.concat(rest[i]);if(worst(nr,len)<=worst(row,len)){row=nr;i++}else break}
+    rest=rest.slice(row.length);const s=row.reduce((a,b)=>a+b.a,0);
+    if(W>=H){const cw=s/H;let cy=Y;row.forEach(r=>{const rh=r.a/cw;out.push({item:r.it,x:X,y:cy,w:cw,h:rh});cy+=rh});X+=cw;W-=cw}
+    else{const rh=s/W;let cx=X;row.forEach(r=>{const rw=r.a/rh;out.push({item:r.it,x:cx,y:Y,w:rw,h:rh});cx+=rw});Y+=rh;H-=rh}
+  }
+  return out;
 }
+/* escala de colores tipo FINVIZ */
+function fvCol(x,rng){
+  if(x==null||!isFinite(x))return '#414554';
+  const t=Math.max(-1,Math.min(1,x/rng));
+  const neg=[[65,69,84],[139,68,78],[191,64,69],[246,53,56]],pos=[[65,69,84],[53,118,78],[47,158,79],[48,204,90]];
+  const P=t<0?neg:pos,a=Math.abs(t)*3,i=Math.min(2,Math.floor(a)),f=a-i,c0=P[i],c1=P[i+1];
+  return `rgb(${c0.map((v,k)=>Math.round(v+(c1[k]-v)*f)).join(',')})`;
+}
+function scoreFv(v){return v==null?'#414554':fvCol((v-50)/50,1)}
+S.hm='r1d';S.hu='us';
+function renderHeat(){
+  const el=$('#heat');if(!el)return;
+  if(!S.scr){el.innerHTML='<p class="note" style="color:#ccc;padding:20px">Todavía no hay análisis generado.</p>';return}
+  if(el.offsetParent===null)return; /* pestaña oculta: se dibuja al abrirla */
+  const m=S.hm,rng={r1d:0.03,r1m:0.10,r6m:0.30,r12m:0.40}[m];
+  const lab={r1d:'±3%',r1m:'±10%',r6m:'±30%',r12m:'±40%'}[m];
+  $('#hm-legend').innerHTML=m==='score'?'Rojo: puntaje bajo · Verde: puntaje alto':`Escala de color: ${lab} o más`;
+  const rows=S.scr.rows.filter(r=>S.hu==='us'?r.region==='EE.UU.':r.region!=='EE.UU.').map(enrich);
+  const mc=rows.map(r=>r.mcap).filter(x=>x>0).sort((a,b)=>a-b);const fill=mc.length?mc[Math.floor(mc.length*0.1)]:1e9;
+  const by={};rows.forEach(o=>{o.v=o.mcap>0?o.mcap:fill;(by[o.sector]=by[o.sector]||[]).push(o)});
+  const secs=Object.keys(by).map(k=>({k,v:by[k].reduce((a,b)=>a+b.v,0)})).sort((a,b)=>b.v-a.v);
+  const W=el.clientWidth,H=el.clientHeight;
+  const val=o=>m==='score'?o.score:(m==='r1d'?o.chg:o[m]);
+  let html='';
+  squarify(secs,0,0,W,H).forEach(sr=>{
+    const list=by[sr.item.k].sort((a,b)=>b.v-a.v);
+    const hd=sr.h>40&&sr.w>50?16:0;
+    html+=`<div class="tsec" style="left:${sr.x}px;top:${sr.y}px;width:${sr.w}px;height:${sr.h}px">${hd?`<span>${esc(sr.item.k)}</span>`:''}</div>`;
+    squarify(list,sr.x,sr.y+hd,sr.w,sr.h-hd).forEach(c=>{
+      const o=c.item,v=val(o);const fs=Math.max(8,Math.min(30,Math.min(c.w/3.6,c.h/2.4)));
+      const txt=m==='score'?(v==null?'':Math.round(v)):pct(v,m==='r1d'?2:1);
+      const show=c.w>=22&&c.h>=13,show2=c.h>=fs*2.3&&c.w>=34;
+      html+=`<div class="tc" data-t="${esc(o.t)}" style="left:${c.x}px;top:${c.y}px;width:${c.w}px;height:${c.h}px;background:${m==='score'?scoreFv(v):fvCol(v,rng)};font-size:${fs}px">${show?`<b>${esc(o.t)}</b>`:''}${show2?`<span style="font-size:${Math.max(8,fs*0.62)}px">${txt}</span>`:''}</div>`;
+    });
+  });
+  el.innerHTML=html;
+  const tip=$('#tmtip');const map={};rows.forEach(o=>map[o.t]=o);
+  el.querySelectorAll('.tc').forEach(d=>{
+    d.onclick=()=>openDetail(d.dataset.t);
+    d.onmousemove=e=>{const o=map[d.dataset.t];if(!o)return;
+      tip.innerHTML=`<b style="font-size:14px">${esc(o.t)}</b> <span style="opacity:.75">${esc(o.name)}</span><div style="opacity:.7;margin-bottom:6px">${esc(o.sector)}</div>
+      <div class="row"><span>Precio</span><b>US$ ${fmt(o.px)}</b></div><div class="row"><span>Var. día</span><b>${pct(o.chg)}</b></div>
+      <div class="row"><span>1 mes / 6 meses</span><b>${pct(o.r1m,1)} / ${pct(o.r6m,1)}</b></div><div class="row"><span>Puntaje PROSPEI</span><b>${Math.round(o.score)}</b></div>
+      ${o.mcap?`<div class="row"><span>Capitalización</span><b>US$ ${vol(o.mcap)}</b></div>`:''}`;
+      tip.classList.remove('hide');const tw=tip.offsetWidth,th=tip.offsetHeight;
+      tip.style.left=Math.min(innerWidth-tw-8,e.clientX+14)+'px';tip.style.top=Math.min(innerHeight-th-8,e.clientY+14)+'px'};
+    d.onmouseleave=()=>tip.classList.add('hide');
+  });
+}
+let _rz;addEventListener('resize',()=>{clearTimeout(_rz);_rz=setTimeout(renderHeat,200)});
+$$('[data-hu]').forEach(b=>b.onclick=()=>{$$('[data-hu]').forEach(x=>x.classList.toggle('on',x===b));S.hu=b.dataset.hu;renderHeat()});
 $$('[data-tf]').forEach(b=>b.onclick=()=>{$$('[data-tf]').forEach(x=>x.classList.toggle('on',x===b));S.tf=b.dataset.tf;renderTop()});
 $$('[data-hm]').forEach(b=>b.onclick=()=>{$$('[data-hm]').forEach(x=>x.classList.toggle('on',x===b));S.hm=b.dataset.hm;renderHeat()});
 $('#q-uni').oninput=()=>{S.uniLimit=100;renderUni()};$('#f-reg').onchange=renderUni;$('#f-sec').onchange=renderUni;$('#f-ced').onchange=renderUni;
