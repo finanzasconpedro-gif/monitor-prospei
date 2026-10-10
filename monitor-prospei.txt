@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor PROSPEI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f6f9; --card:#ffffff; --ink:#0f1b2d; --muted:#5b6b80; --line:#e2e8f0;
+  --brand:#0b2545; --brand2:#13315c; --accent:#1d7af3; --up:#0f9d58; --down:#d93025;
+  --upbg:#e6f6ee; --downbg:#fdecea; --best:#fff6d6; --bestline:#e0b300; --warn:#a15c00; --warnbg:#fff1dc;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1220; --card:#121b2e; --ink:#e6edf7; --muted:#93a3b8; --line:#22304a;
+    --brand:#0a1a33; --brand2:#12284d; --accent:#5aa2ff; --up:#34c77b; --down:#ff6b5e;
+    --upbg:#10301f; --downbg:#3a1714; --best:#3a3010; --bestline:#d4a800; --warn:#f0b35a; --warnbg:#3a2a10;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220; --card:#121b2e; --ink:#e6edf7; --muted:#93a3b8; --line:#22304a;
+  --brand:#0a1a33; --brand2:#12284d; --accent:#5aa2ff; --up:#34c77b; --down:#ff6b5e;
+  --upbg:#10301f; --downbg:#3a1714; --best:#3a3010; --bestline:#d4a800; --warn:#f0b35a; --warnbg:#3a2a10;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px}
+.num,td.n,th.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.mono{font-family:"IBM Plex Mono",monospace}
+header{background:linear-gradient(120deg,var(--brand),var(--brand2));color:#fff;padding:14px 16px}
+.hwrap{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-weight:700;letter-spacing:.08em;font-size:18px}
+.logo small{display:block;font-weight:400;letter-spacing:.02em;font-size:11px;opacity:.75}
+.hright{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;opacity:.95;flex-wrap:wrap}
+.btn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:12px}
+.btn:hover{background:rgba(255,255,255,.18)}
+.dot{width:8px;height:8px;border-radius:50%;background:#7dd3a0;display:inline-block;margin-right:6px}
+.dot.load{background:#ffd166;animation:p 1s infinite}.dot.err{background:#ff6b5e}
+@keyframes p{50%{opacity:.3}}
+main{max-width:1280px;margin:0 auto;padding:16px}
+.ticker{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-size:20px;font-weight:600;margin-top:2px}
+.kpi .s{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tab{background:none;border:none;border-bottom:3px solid transparent;padding:10px 12px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab.on{color:var(--accent);border-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 4px}
+.card p.sub{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.45}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+input[type=search],input[type=number],select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit}
+input[type=search]{min-width:180px;flex:1;max-width:280px}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--bg);position:sticky;top:0;cursor:pointer;user-select:none;text-align:left;white-space:nowrap}
+th.n{text-align:right}
+th .ar{opacity:.6;margin-left:3px}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.up{color:var(--up)}.down{color:var(--down)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.up{background:var(--upbg)}.pill.down{background:var(--downbg)}
+.pill.warn{background:var(--warnbg);color:var(--warn)}
+tr.best td{background:var(--best)}
+tr.dim td{opacity:.5}
+.tag{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--bestline);color:#1a1300;margin-left:6px;vertical-align:middle}
+.star{cursor:pointer;color:var(--muted);font-size:15px;background:none;border:none;padding:0}
+.star.on{color:#e0a800}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.best-box{border:1px solid var(--bestline);background:var(--best);border-radius:10px;padding:12px}
+.best-box .l{font-size:12px;color:var(--muted)}
+.best-box .v{font-size:22px;font-weight:700;margin:2px 0}
+.calc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.calc input{width:160px}
+.note{font-size:12px;color:var(--muted);line-height:1.5}
+.alert{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:12px;display:none}
+footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;color:var(--muted);line-height:1.55}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <div class="logo">PROSPEI <small>Consultores Financieros · Monitor de Mercado</small></div>
+    <div class="hright">
+      <span><span id="dot" class="dot load"></span><span id="upd">Cargando…</span></span>
+      <label style="display:flex;align-items:center;gap:4px"><input type="checkbox" id="auto" checked> Auto 60s</label>
+      <button class="btn" id="refresh">Actualizar</button>
+      <button class="btn" id="theme">◐ Tema</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="alert" class="alert"></div>
+
+  <section class="ticker" id="kpis"></section>
+
+  <nav class="tabs">
+    <button class="tab on" data-t="acc">Acciones</button>
+    <button class="tab" data-t="mep">Dólar MEP por bono</button>
+    <button class="tab" data-t="ced">CEDEARs desarbitrados</button>
+  </nav>
+
+  <!-- ACCIONES -->
+  <section id="t-acc">
+    <div class="card">
+      <h2>Acciones argentinas</h2>
+      <p class="sub">Precio en pesos y en dólares (al CCL de referencia). Para las que tienen ADR, se muestra el CCL implícito y cuánto se aparta del CCL de referencia. Marcá ★ para armar tu lista.</p>
+      <div class="bar">
+        <input type="search" id="q-acc" placeholder="Buscar ticker…">
+        <button class="chip on" data-pa="lider">Panel líder</button>
+        <button class="chip" data-pa="general">Panel general</button>
+        <button class="chip" data-pa="fav">★ Mi lista</button>
+      </div>
+      <div class="tw"><table id="tb-acc"></table></div>
+    </div>
+  </section>
+
+  <!-- MEP -->
+  <section id="t-mep" class="hide">
+    <div class="grid2" style="margin-bottom:14px">
+      <div class="best-box">
+        <div class="l">Mejor bono para <b>COMPRAR</b> dólares MEP (pagás menos pesos por dólar)</div>
+        <div class="v" id="bestC">—</div>
+        <div class="note" id="bestCn"></div>
+        <div class="calc">
+          <span>Tengo $</span><input type="number" id="calcA" placeholder="1000000" min="0">
+          <span id="calcAr" class="mono">→ US$ —</span>
+        </div>
+      </div>
+      <div class="best-box">
+        <div class="l">Mejor bono para <b>VENDER</b> dólares MEP (recibís más pesos por dólar)</div>
+        <div class="v" id="bestV">—</div>
+        <div class="note" id="bestVn"></div>
+        <div class="calc">
+          <span>Tengo US$</span><input type="number" id="calcU" placeholder="1000" min="0">
+          <span id="calcUr" class="mono">→ $ —</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Dólar MEP y CCL implícito por bono</h2>
+      <p class="sub"><b>Compra MEP</b> = punta vendedora en pesos ÷ punta compradora en dólares (lo que pagás). <b>Venta MEP</b> = punta compradora en pesos ÷ punta vendedora en dólares (lo que recibís). Se ordena por liquidez en dólares. Fuera de horario de mercado se usan precios de cierre.</p>
+      <div class="bar">
+        <input type="search" id="q-mep" placeholder="Buscar bono…">
+        <button class="chip on" data-lq="1">Solo con operaciones</button>
+        <button class="chip" data-lq="0">Todos</button>
+      </div>
+      <div class="tw"><table id="tb-mep"></table></div>
+      <p class="note" style="margin-top:10px">Los valores no incluyen comisiones, derechos de mercado ni plazos de liquidación. Verificá las condiciones con tu ALyC antes de operar.</p>
+    </div>
+  </section>
+
+  <!-- CEDEARS -->
+  <section id="t-ced" class="hide">
+    <div class="card">
+      <h2>CEDEARs desarbitrados</h2>
+      <p class="sub"><b>CCL implícito</b> = precio del CEDEAR en pesos × ratio ÷ precio del subyacente en EE.UU. Si es <span class="down"><b>menor</b></span> al CCL de referencia, el CEDEAR está <b>barato</b> respecto de su subyacente; si es <span class="up"><b>mayor</b></span>, está <b>caro</b>. <b>TC del papel</b> = precio en pesos ÷ precio en D, comparado con el MEP de referencia.</p>
+      <div class="bar">
+        <input type="search" id="q-ced" placeholder="Buscar CEDEAR…">
+        <button class="chip on" data-cf="all">Todos</button>
+        <button class="chip" data-cf="cheap">Baratos (&lt; −1%)</button>
+        <button class="chip" data-cf="exp">Caros (&gt; +1%)</button>
+        <button class="chip" data-cf="fav">★ Mi lista</button>
+        <label class="note" style="display:flex;align-items:center;gap:6px">CCL ref.
+          <select id="cclsrc"><option value="bono">Bonos (AL30C/GD30C)</option><option value="ced">Mediana CEDEARs</option></select>
+        </label>
+      </div>
+      <div class="tw"><table id="tb-ced"></table></div>
+      <p class="note" style="margin-top:10px">Ratios según el listado de BYMA (actualización sep-2026). Si un ratio cambió por un split, el desvío se dispara: esas filas se marcan “revisar ratio” y quedan fuera de los rankings. Podés corregir el ratio con el botón ✎ (se guarda solo en tu navegador).</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Información de carácter informativo y educativo. No constituye recomendación de compra o venta de valores negociables. Datos de terceros (data912.com, dolarapi.com, argentinadatos.com) que pueden tener demora o errores; verificá precios en tu ALyC antes de operar. Rendimientos pasados no garantizan resultados futuros. · PROSPEI Consultores Financieros
+</footer>
+
+<script>
+(function(){
+"use strict";
+const API='https://data912.com/live/';
+const LIDER=['ALUA','BBAR','BMA','BYMA','CEPU','COME','CRES','EDN','GGAL','IRSA','LOMA','METR','PAMP','SUPV','TECO2','TGNO4','TGSU2','TRAN','TXAR','VALO','YPFD'];
+/* ratio "a:b" = a CEDEARs equivalen a b acciones */
+const RATIOS={AAPL:'20:1',ABBV:'10:1',ABEV:'1:3',ABNB:'15:1',ABT:'4:1',ACN:'75:1',ADBE:'44:1',ADGO:'1:1',ADI:'15:1',AEM:'6:1',AIG:'5:1',AMAT:'5:1',AMD:'10:1',AMGN:'30:1',AMX:'1:1',AMZN:'144:1',ANET:'29:1',ARKK:'10:1',ARM:'27:1',ASML:'146:1',ASTS:'15:1',AVGO:'39:1',AXP:'15:1',AZN:'4:1',B:'2:1',BA:'24:1','BA.C':'41:1',BABA:'9:1',BBD:'1:1',BHP:'2:1',BIDU:'11:1',BIOX:'1:1',BK:'2:1',BKNG:'700:1',BMY:'3:1',BP:'5:1',BRKB:'22:1',C:'3:1',CAAP:'1:4',CAT:'20:1',CCJ:'23:1',CDE:'1:1',CEG:'45:1',CL:'3:1',COIN:'27:1',COP:'25:1',COST:'48:1',CRM:'18:1',CRWD:'79:1',CRWV:'27:1',CSCO:'5:1',CVS:'15:1',CVX:'16:1',CX:'1:1',DAL:'8:1',DE:'40:1',DELL:'74:1',DIA:'20:1',DISN:'12:1',EBAY:'2:1',EEM:'5:1',ETHA:'5:1',EWZ:'2:1',F:'1:1',FCX:'3:1',FDX:'10:1',FSLR:'18:1',FXI:'5:1',GDX:'10:1',GE:'8:1',GEV:'180:1',GFI:'1:1',GGB:'1:4',GILD:'4:1',GLD:'50:1',GLOB:'18:1',GM:'6:1',GOOGL:'58:1',GS:'13:1',HD:'32:1',HIMS:'4:1',HMY:'1:1',HON:'8:1',HOOD:'29:1',HSBC:'2:1',IBIT:'10:1',IBM:'15:1',INTC:'5:1',IREN:'12:1',ISRG:'90:1',ITUB:'1:1',IWM:'10:1',JD:'4:1',JNJ:'15:1',JPM:'15:1',KLAC:'34:1',KO:'5:1',LLY:'56:1',LMT:'20:1',LRCX:'56:1',MA:'33:1',MCD:'24:1',MELI:'120:1',META:'24:1',MMM:'10:1',MO:'4:1',MRK:'5:1',MRVL:'14:1',MSFT:'30:1',MSTR:'20:1',MU:'5:1',NBIS:'27:1',NEM:'3:1',NFLX:'48:1',NIO:'4:1',NKE:'12:1',NOW:'172:1',NU:'2:1',NVDA:'24:1',NVO:'7:1',OKLO:'28:1',ORCL:'3:1',OXY:'5:1',PAAS:'3:1',PAGS:'3:1',PANW:'50:1',PBR:'1:1',PDD:'25:1',PEP:'18:1',PFE:'4:1',PG:'15:1',PLTR:'3:1',PYPL:'8:1',QCOM:'11:1',QQQ:'20:1',RIO:'8:1',RKLB:'12:1',SBUX:'12:1',SE:'32:1',SHOP:'107:1',SLV:'6:1',SMH:'50:1',SNDK:'170:1',SNOW:'30:1',SPOT:'28:1',SPY:'60:1',STNE:'3:1',T:'3:1',TEN:'1:1',TGT:'24:1',TMO:'22:1',TSLA:'15:1',TSM:'9:1',TXN:'5:1',TXR:'4:1',UBER:'2:1',UNH:'33:1',V:'18:1',VALE:'2:1',VIST:'3:1',VST:'26:1',VZ:'4:1',WFC:'5:1',WMT:'18:1',XLE:'2:1',XLF:'2:1',XOM:'10:1',XP:'4:1',XYZ:'20:1',ZM:'47:1'};
+const USMAP={'BA.C':['BAC'],BRKB:['BRK.B','BRK-B','BRKB','BRK/B'],DISN:['DIS'],B:['B','GOLD']};
+const MAXDESV=0.25;
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+const ok=x=>typeof x==='number'&&isFinite(x)&&x>0;
+const fmt=(n,d=2)=>(n==null||!isFinite(n))?'—':n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct=(x,d=2)=>(x==null||!isFinite(x))?'—':(x>0?'+':'')+fmt(x*100,d)+'%';
+const cls=x=>x==null?'':(x>0?'up':(x<0?'down':''));
+const vol=n=>{if(!isFinite(n)||n==null)return'—';const a=Math.abs(n);if(a>=1e9)return fmt(n/1e9,1)+' B';if(a>=1e6)return fmt(n/1e6,1)+' M';if(a>=1e3)return fmt(n/1e3,1)+' K';return fmt(n,0)};
+const median=a=>{const b=a.filter(isFinite).sort((x,y)=>x-y);if(!b.length)return null;const m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2};
+function store(k,v){try{if(v===undefined){const r=localStorage.getItem('prospei_'+k);return r?JSON.parse(r):null}localStorage.setItem('prospei_'+k,JSON.stringify(v))}catch(e){return null}}
+function parseRatio(s){const m=String(s).match(/^\s*(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\s*$/);if(!m)return null;const a=parseFloat(m[1].replace(',','.')),b=parseFloat(m[2].replace(',','.'));return a>0&&b>0?{a,b,str:a+':'+b}:null}
+async function getJ(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(url+' → '+r.status);return r.json()}
+
+/* ---------- state ---------- */
+const S={data:{},ref:{},sort:{acc:['vol',-1],mep:['liq',-1],ced:['desv',1]},
+  fav:new Set(store('fav')||[]),ratioOv:store('ratios')||{},pa:'lider',lq:'1',cf:'all',cclsrc:'bono'};
+function saveFav(){store('fav',[...S.fav])}
+
+/* ---------- theme ---------- */
+(function(){const t=store('theme');if(t)document.documentElement.setAttribute('data-theme',t)})();
+$('#theme').onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);store('theme',n)};
+
+/* ---------- tabs & filters ---------- */
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t))});
+function chipGroup(attr,key,fn){$$('[data-'+attr+']').forEach(b=>b.onclick=()=>{$$('[data-'+attr+']').forEach(x=>x.classList.toggle('on',x===b));S[key]=b.dataset[attr];fn()})}
+chipGroup('pa','pa',renderAcc);chipGroup('lq','lq',renderMep);chipGroup('cf','cf',renderCed);
+$('#q-acc').oninput=renderAcc;$('#q-mep').oninput=renderMep;$('#q-ced').oninput=renderCed;
+$('#cclsrc').onchange=e=>{S.cclsrc=e.target.value;renderCed()};
+$('#calcA').oninput=calc;$('#calcU').oninput=calc;
+
+/* ---------- generic table ---------- */
+function table(el,key,cols,rows,rowCls){
+  const [sk,sd]=S.sort[key];
+  const r=rows.slice().sort((a,b)=>{const x=a[sk],y=b[sk];const xa=(x==null||(typeof x==='number'&&!isFinite(x))),ya=(y==null||(typeof y==='number'&&!isFinite(y)));if(xa&&ya)return 0;if(xa)return 1;if(ya)return -1;return (typeof x==='string'?x.localeCompare(y):x-y)*sd});
+  let h='<thead><tr>'+cols.map(c=>`<th class="${c.n?'n':''}" data-k="${c.k}">${c.h}${c.k===sk?`<span class="ar">${sd>0?'▲':'▼'}</span>`:''}</th>`).join('')+'</tr></thead><tbody>';
+  if(!r.length)h+=`<tr><td colspan="${cols.length}" class="note" style="text-align:center;padding:20px">Sin datos para mostrar.</td></tr>`;
+  r.forEach(o=>{h+=`<tr class="${rowCls?rowCls(o):''}">`+cols.map(c=>`<td class="${c.n?'n':''}">${c.f?c.f(o):(o[c.k]??'—')}</td>`).join('')+'</tr>'});
+  el.innerHTML=h+'</tbody>';
+  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(k==='fav')return;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];({acc:renderAcc,mep:renderMep,ced:renderCed})[key]()});
+  el.querySelectorAll('.star').forEach(b=>b.onclick=e=>{e.stopPropagation();const s=b.dataset.s;S.fav.has(s)?S.fav.delete(s):S.fav.add(s);saveFav();renderAcc();renderCed()});
+  el.querySelectorAll('.edit').forEach(b=>b.onclick=e=>{e.stopPropagation();editRatio(b.dataset.s)});
+}
+const star=s=>`<button class="star ${S.fav.has(s)?'on':''}" data-s="${s}" title="Mi lista">${S.fav.has(s)?'★':'☆'}</button>`;
+
+/* ---------- MEP / CCL por bono ---------- */
+function buildBonds(bonds){
+  const m={};bonds.forEach(b=>{if(b&&b.symbol)m[b.symbol]=b});
+  const rows=[];
+  bonds.forEach(b=>{
+    const s=b.symbol;if(!s)return;const u=m[s+'D'];if(!u)return;const c=m[s+'C'];
+    const live=ok(b.px_ask)&&ok(b.px_bid)&&ok(u.px_ask)&&ok(u.px_bid);
+    rows.push({sym:s,ars:b,usd:u,cbl:c,live,
+      compra:(ok(b.px_ask)&&ok(u.px_bid))?b.px_ask/u.px_bid:null,
+      venta:(ok(b.px_bid)&&ok(u.px_ask))?b.px_bid/u.px_ask:null,
+      ult:(ok(b.c)&&ok(u.c))?b.c/u.c:null,
+      ccl:(c&&ok(b.c)&&ok(c.c))?b.c/c.c:null,
+      cclC:(c&&ok(b.px_ask)&&ok(c.px_bid))?b.px_ask/c.px_bid:null,
+      liq:ok(u.v)?u.v:0, varA:b.pct_change, pa:b.c, pu:u.c});
+  });
+  /* control de datos absurdos */
+  const med=median(rows.map(r=>r.ult).filter(x=>x));
+  rows.forEach(r=>{r.out=!!(med&&r.ult&&(r.ult>med*1.15||r.ult<med*0.85));if(r.out){r.compra=r.venta=null}
+    if(r.compra&&med&&(r.compra>med*1.15||r.compra<med*0.85))r.compra=null;
+    if(r.venta&&med&&(r.venta>med*1.15||r.venta<med*0.85))r.venta=null;
+    r.spread=(r.compra&&r.venta)?r.compra/r.venta-1:null});
+  return {rows,med};
+}
+function pickRef(rows,key,prefs){for(const p of prefs){const r=rows.find(x=>x.sym===p&&x[key]&&!x.out);if(r)return {v:r[key],src:p}}const md=median(rows.filter(r=>!r.out).map(r=>r[key]).filter(x=>x));return md?{v:md,src:'mediana'}:null}
+
+function renderMep(){
+  const B=S.data.bonds;const el=$('#tb-mep');if(!B){el.innerHTML='';return}
+  const q=$('#q-mep').value.trim().toUpperCase();
+  let rows=B.rows.filter(r=>!q||r.sym.includes(q));
+  if(S.lq==='1')rows=rows.filter(r=>r.liq>0||r.live);
+  const anyLive=B.rows.some(r=>r.live&&r.compra);
+  const elig=rows.filter(r=>!r.out&&(anyLive?r.live:true)&&r.liq>0);
+  const bc=elig.filter(r=>anyLive?r.compra:r.ult).sort((a,b)=>(anyLive?a.compra-b.compra:a.ult-b.ult))[0];
+  const bv=elig.filter(r=>anyLive?r.venta:r.ult).sort((a,b)=>(anyLive?b.venta-a.venta:b.ult-a.ult))[0];
+  S.bestC=bc?{sym:bc.sym,v:anyLive?bc.compra:bc.ult}:null;S.bestV=bv?{sym:bv.sym,v:anyLive?bv.venta:bv.ult}:null;
+  $('#bestC').innerHTML=S.bestC?`${S.bestC.sym} · $ ${fmt(S.bestC.v)}`:'—';
+  $('#bestV').innerHTML=S.bestV?`${S.bestV.sym} · $ ${fmt(S.bestV.v)}`:'—';
+  const modo=anyLive?'Con puntas en vivo, entre bonos con volumen en dólares.':'Mercado cerrado: comparación con precios de cierre (no hay puntas).';
+  $('#bestCn').textContent=S.bestC?`Comprás pesos→${S.bestC.sym}, vendés ${S.bestC.sym}D. ${modo}`:modo;
+  $('#bestVn').textContent=S.bestV?`Comprás ${S.bestV.sym}D con dólares, vendés ${S.bestV.sym} en pesos. ${modo}`:modo;
+  calc();
+  const cols=[
+    {k:'sym',h:'Bono',f:o=>`<b>${o.sym}</b>${S.bestC&&o.sym===S.bestC.sym?'<span class="tag">MEJOR COMPRA</span>':''}${S.bestV&&o.sym===S.bestV.sym?'<span class="tag">MEJOR VENTA</span>':''}${o.out?' <span class="pill warn">dato dudoso</span>':''}`},
+    {k:'compra',h:'Compra MEP',n:1,f:o=>fmt(o.compra)},
+    {k:'venta',h:'Venta MEP',n:1,f:o=>fmt(o.venta)},
+    {k:'ult',h:'MEP último',n:1,f:o=>`<b>${fmt(o.ult)}</b>`},
+    {k:'spread',h:'Spread',n:1,f:o=>o.spread==null?'—':fmt(o.spread*100,2)+'%'},
+    {k:'ccl',h:'CCL (C)',n:1,f:o=>fmt(o.ccl)},
+    {k:'pa',h:'Precio $',n:1,f:o=>fmt(o.pa)},
+    {k:'pu',h:'Precio US$ (D)',n:1,f:o=>fmt(o.pu,3)},
+    {k:'varA',h:'Var. $',n:1,f:o=>`<span class="${cls(o.varA)}">${o.varA==null?'—':pct(o.varA/100)}</span>`},
+    {k:'liq',h:'Volumen D',n:1,f:o=>vol(o.liq)}
+  ];
+  table(el,'mep',cols,rows,o=>(S.bestC&&o.sym===S.bestC.sym)||(S.bestV&&o.sym===S.bestV.sym)?'best':(o.out?'dim':''));
+}
+function calc(){
+  const a=parseFloat($('#calcA').value),u=parseFloat($('#calcU').value);
+  $('#calcAr').textContent=(S.bestC&&a>0)?`→ US$ ${fmt(a/S.bestC.v)}`:'→ US$ —';
+  $('#calcUr').textContent=(S.bestV&&u>0)?`→ $ ${fmt(u*S.bestV.v)}`:'→ $ —';
+}
+
+/* ---------- Acciones ---------- */
+function renderAcc(){
+  const st=S.data.stocks;const el=$('#tb-acc');if(!st){el.innerHTML='';return}
+  const ccl=S.ref.ccl&&S.ref.ccl.v;const adr=S.data.adrCcl||{};
+  const q=$('#q-acc').value.trim().toUpperCase();
+  let rows=st.filter(s=>s.symbol&&ok(s.c)).map(s=>{const a=adr[s.symbol];return {sym:s.symbol,c:s.c,chg:s.pct_change,usd:ccl?s.c/ccl:null,vol:ok(s.v)?s.v*s.c:0,bid:s.px_bid,ask:s.px_ask,adr:a||null,adrDesv:(a&&ccl)?a/ccl-1:null}});
+  if(S.pa==='lider')rows=rows.filter(r=>LIDER.includes(r.sym));
+  if(S.pa==='fav')rows=rows.filter(r=>S.fav.has(r.sym));
+  if(q)rows=rows.filter(r=>r.sym.includes(q));
+  const cols=[
+    {k:'fav',h:'',f:o=>star(o.sym)},
+    {k:'sym',h:'Ticker',f:o=>`<b>${o.sym}</b>`},
+    {k:'c',h:'Precio $',n:1,f:o=>fmt(o.c)},
+    {k:'chg',h:'Var. día',n:1,f:o=>`<span class="pill ${cls(o.chg)}">${o.chg==null?'—':pct(o.chg/100)}</span>`},
+    {k:'usd',h:'Precio US$ (CCL)',n:1,f:o=>fmt(o.usd,3)},
+    {k:'bid',h:'Compra',n:1,f:o=>ok(o.bid)?fmt(o.bid):'—'},
+    {k:'ask',h:'Venta',n:1,f:o=>ok(o.ask)?fmt(o.ask):'—'},
+    {k:'vol',h:'Monto $',n:1,f:o=>vol(o.vol)},
+    {k:'adr',h:'CCL vía ADR',n:1,f:o=>fmt(o.adr)},
+    {k:'adrDesv',h:'vs CCL ref.',n:1,f:o=>o.adrDesv==null?'—':`<span class="${cls(o.adrDesv)}">${pct(o.adrDesv)}</span>`}
+  ];
+  table(el,'acc',cols,rows);
+}
+
+/* ---------- CEDEARs ---------- */
+function editRatio(sym){
+  const cur=S.ratioOv[sym]||RATIOS[sym]||'';
+  const v=prompt(`Ratio de ${sym} (CEDEARs:acciones, ej. 20:1). Vacío = volver al de BYMA.`,cur);
+  if(v===null)return;
+  if(!v.trim()){delete S.ratioOv[sym]}else{const p=parseRatio(v);if(!p){alert('Formato inválido. Usá por ejemplo 20:1');return}S.ratioOv[sym]=p.str}
+  store('ratios',S.ratioOv);buildCed();renderCed();
+}
+function buildCed(){
+  const ced=S.data.cedears,us=S.data.us;if(!ced||!us){S.data.ced=null;return}
+  const cm={};ced.forEach(c=>{if(c&&c.symbol)cm[c.symbol]=c});
+  const out=[];
+  Object.keys(RATIOS).forEach(sym=>{
+    const c=cm[sym];if(!c||!ok(c.c))return;
+    const cands=USMAP[sym]||[sym];let u=null,usym=null;for(const k of cands){if(us[k]&&ok(us[k].c)){u=us[k];usym=k;break}}if(!u)return;
+    const rs=S.ratioOv[sym]||RATIOS[sym];const r=parseRatio(rs);if(!r)return;
+    const sh=r.b/r.a; /* acciones por CEDEAR */
+    const d=cm[sym+'D'];
+    out.push({sym,usym,ratio:rs,edited:!!S.ratioOv[sym],c:c.c,chg:c.pct_change,uc:u.c,uchg:u.pct_change,
+      impl:c.c/(u.c*sh), implAsk:ok(c.px_ask)?c.px_ask/(u.c*sh):null,
+      tc:(d&&ok(d.c))?c.c/d.c:null, vol:ok(c.v)?c.v*c.c:0, sh});
+  });
+  S.data.ced=out;
+}
+function renderCed(){
+  const el=$('#tb-ced');const C=S.data.ced;if(!C){el.innerHTML='';return}
+  const okRows=C.filter(r=>r.vol>0);
+  let ref=S.cclsrc==='bono'&&S.ref.ccl?S.ref.ccl.v:null;
+  if(!ref){ref=median(okRows.map(r=>r.impl));}
+  const mep=S.ref.mep&&S.ref.mep.v;
+  const q=$('#q-ced').value.trim().toUpperCase();
+  let rows=C.map(r=>{const desv=ref?r.impl/ref-1:null;const bad=desv!=null&&Math.abs(desv)>MAXDESV;
+    return Object.assign({},r,{desv:bad?null:desv,rawDesv:desv,bad,justo:ref?r.uc*ref*r.sh:null,tcDesv:(r.tc&&mep)?r.tc/mep-1:null})});
+  if(q)rows=rows.filter(r=>r.sym.includes(q)||(r.usym||'').includes(q));
+  if(S.cf==='cheap')rows=rows.filter(r=>r.desv!=null&&r.desv<-0.01&&r.vol>0);
+  if(S.cf==='exp')rows=rows.filter(r=>r.desv!=null&&r.desv>0.01&&r.vol>0);
+  if(S.cf==='fav')rows=rows.filter(r=>S.fav.has(r.sym));
+  const cols=[
+    {k:'fav',h:'',f:o=>star(o.sym)},
+    {k:'sym',h:'CEDEAR',f:o=>`<b>${o.sym}</b>${o.usym!==o.sym?` <span class="note">(${o.usym})</span>`:''}`},
+    {k:'c',h:'Precio $',n:1,f:o=>fmt(o.c)},
+    {k:'justo',h:'Precio justo $',n:1,f:o=>fmt(o.justo)},
+    {k:'desv',h:'Desarbitraje',n:1,f:o=>o.bad?`<span class="pill warn" title="Desvío ${pct(o.rawDesv)}">revisar ratio</span>`:(o.desv==null?'—':`<span class="pill ${o.desv<0?'down':'up'}">${pct(o.desv)} ${o.desv<-0.01?'barato':(o.desv>0.01?'caro':'')}</span>`)},
+    {k:'impl',h:'CCL implícito',n:1,f:o=>fmt(o.impl)},
+    {k:'uc',h:'Subyacente US$',n:1,f:o=>fmt(o.uc)},
+    {k:'ratio',h:'Ratio',n:1,f:o=>`<span class="mono">${o.ratio}</span>${o.edited?'*':''} <button class="star edit" data-s="${o.sym}" title="Editar ratio">✎</button>`},
+    {k:'tc',h:'TC del papel ($/D)',n:1,f:o=>fmt(o.tc)},
+    {k:'tcDesv',h:'vs MEP ref.',n:1,f:o=>o.tcDesv==null?'—':`<span class="${cls(o.tcDesv)}">${pct(o.tcDesv)}</span>`},
+    {k:'chg',h:'Var. $',n:1,f:o=>`<span class="${cls(o.chg)}">${o.chg==null?'—':pct(o.chg/100)}</span>`},
+    {k:'vol',h:'Monto $',n:1,f:o=>vol(o.vol)}
+  ];
+  S.cedRef=ref;
+  table(el,'ced',cols,rows,o=>o.vol>0?'':'dim');
+}
+
+/* ---------- KPIs ---------- */
+function renderKpis(){
+  const d=S.data,k=[];
+  const of=d.dolares&&d.dolares.find(x=>x.casa==='oficial'),bl=d.dolares&&d.dolares.find(x=>x.casa==='blue');
+  const mep=S.ref.mep,ccl=S.ref.ccl;
+  if(mep)k.push(['Dólar MEP',`$ ${fmt(mep.v)}`,'Ref. '+mep.src]);
+  if(ccl)k.push(['Dólar CCL',`$ ${fmt(ccl.v)}`,'Ref. '+ccl.src]);
+  if(of)k.push(['Oficial (venta)',`$ ${fmt(of.venta)}`,'BNA']);
+  if(of&&mep)k.push(['Brecha MEP',pct(mep.v/of.venta-1,1),'vs oficial']);
+  if(bl)k.push(['Blue (venta)',`$ ${fmt(bl.venta)}`,'informal']);
+  if(mep&&ccl)k.push(['Canje CCL/MEP',pct(ccl.v/mep.v-1,2),'']);
+  if(d.rp)k.push(['Riesgo país',fmt(d.rp.valor,0)+' pb',d.rp.fecha?new Date(d.rp.fecha).toLocaleDateString('es-AR'):'']);
+  $('#kpis').innerHTML=k.map(x=>`<div class="kpi"><div class="l">${x[0]}</div><div class="v num" style="text-align:left">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('');
+}
+
+/* ---------- carga ---------- */
+let loading=false;
+async function load(){
+  if(loading)return;loading=true;$('#dot').className='dot load';
+  const P=[getJ(API+'arg_bonds'),getJ(API+'arg_stocks'),getJ(API+'arg_cedears'),getJ(API+'usa_stocks'),getJ(API+'usa_adrs'),getJ(API+'ccl'),
+    getJ('https://dolarapi.com/v1/dolares'),getJ('https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo')];
+  const [bo,st,ce,us,ad,cc,dl,rp]=await Promise.allSettled(P);
+  const errs=[];
+  if(bo.status==='fulfilled'&&Array.isArray(bo.value)){S.data.bonds=buildBonds(bo.value)}else errs.push('bonos');
+  if(st.status==='fulfilled'&&Array.isArray(st.value))S.data.stocks=st.value;else errs.push('acciones');
+  if(ce.status==='fulfilled'&&Array.isArray(ce.value))S.data.cedears=ce.value;else errs.push('CEDEARs');
+  const usm=S.data.us||{};
+  [us,ad].forEach(x=>{if(x.status==='fulfilled'&&Array.isArray(x.value))x.value.forEach(s=>{if(s&&s.symbol)usm[s.symbol]=s})});
+  if(us.status!=='fulfilled')errs.push('EE.UU.');
+  S.data.us=usm;
+  if(cc.status==='fulfilled'&&Array.isArray(cc.value)){const m={};cc.value.forEach(r=>{const v=ok(r.CCL_mark)?r.CCL_mark:(ok(r.CCL_close)?r.CCL_close:null);if(r.ticker_ar&&v)m[r.ticker_ar]=v});S.data.adrCcl=m}
+  if(dl.status==='fulfilled'&&Array.isArray(dl.value))S.data.dolares=dl.value;
+  if(rp.status==='fulfilled'&&rp.value&&rp.value.valor)S.data.rp=rp.value;
+  if(S.data.bonds){const R=S.data.bonds.rows;S.ref.mep=pickRef(R,'ult',['AL30','GD30']);S.ref.ccl=pickRef(R,'ccl',['AL30','GD30'])}
+  buildCed();
+  renderKpis();renderAcc();renderMep();renderCed();
+  const a=$('#alert');
+  if(errs.length){a.style.display='block';a.textContent='No se pudieron actualizar: '+errs.join(', ')+'. Se reintenta en el próximo refresco.'}else a.style.display='none';
+  $('#dot').className='dot'+(errs.length>=3?' err':'');
+  $('#upd').textContent='Actualizado '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  loading=false;
+}
+$('#refresh').onclick=load;
+setInterval(()=>{if($('#auto').checked&&!document.hidden)load()},60000);
+load();
+})();
+</script>
+</body>
+</html>
