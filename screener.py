@@ -297,7 +297,54 @@ def build(universe, prices, infos):
     return df
 
 
-def build_etfs(prices):
+# ---------------------------------------------------------------- rotacion (RRG)
+RRG_WEEKS = 26
+
+
+def weekly(ser):
+    return ser.resample("W-FRI").last().dropna()
+
+
+def rrg(ser, bench_w, weeks=RRG_WEEKS):
+    """RS-Ratio (fuerza relativa vs su promedio de 10 semanas) y RS-Momentum (cambio de 4 semanas del RS-Ratio).
+    Ambos centrados en 100. Devuelve (puntos [[x,y],...], fechas) o (None, None)."""
+    if ser is None or bench_w is None:
+        return None, None
+    df = pd.concat([weekly(ser), bench_w], axis=1, join="inner").dropna()
+    if len(df) < weeks + 16:
+        return None, None
+    rs = (df.iloc[:, 0] / df.iloc[:, 1]).ewm(span=3, adjust=False).mean()
+    rsr = 100 * rs / rs.rolling(10).mean()
+    rsm = (100 * rsr / rsr.shift(4)).ewm(span=3, adjust=False).mean()
+    out = pd.concat([rsr, rsm], axis=1).dropna().tail(weeks + 1)
+    return ([[round(float(x), 2), round(float(y), 2)] for x, y in out.values],
+            [d.strftime("%Y-%m-%d") for d in out.index])
+
+
+def quadrant(x, y):
+    if x >= 100:
+        return "Liderando" if y >= 100 else "Perdiendo impulso"
+    return "Mejorando" if y >= 100 else "Rezagado"
+
+
+def heading(pts):
+    """Cuadrante actual y hacia dónde va según las últimas 3 semanas."""
+    x, y = pts[-1]
+    x0, y0 = pts[-4] if len(pts) >= 4 else pts[0]
+    dx, dy = x - x0, y - y0
+    q = quadrant(x, y)
+    if q == "Mejorando":
+        h = "Rumbo a Liderando" if dx > 0 else "Mejorando sin avanzar"
+    elif q == "Rezagado":
+        h = "Girando hacia Mejorando" if dy > 0 else "Sigue rezagándose"
+    elif q == "Liderando":
+        h = "Liderazgo firme" if dy >= 0 else "Empieza a frenarse"
+    else:
+        h = "Retomando impulso" if dy > 0 else "Rumbo a Rezagado"
+    return q, h, round(dx, 2), round(dy, 2)
+
+
+def build_etfs(prices, series=None):
     """AT de los ETFs sectoriales y fase relativa contra el S&P 500 (SPY)."""
     if BENCH not in prices:
         return None, []
@@ -319,7 +366,9 @@ def build_etfs(prices):
     df["rs_score"] = 100 * pct_rank(rs_mix).fillna(0.5)
     df["at"] = (0.6 * df.at_own + 0.4 * df.rs_score).clip(0, 100)
     out = []
+    bw = weekly(series[BENCH]) if series and BENCH in series else None
     for r in df.itertuples():
+        pts, dates = rrg(series.get(r.etf) if series else None, bw)
         rs3 = (r.r3m - spy["r3m"]) if r.r3m is not None else None
         rs1 = (r.r1m - spy["r1m"]) if r.r1m is not None else None
         rs6 = (r.r6m - spy["r6m"]) if r.r6m is not None else None
@@ -333,6 +382,9 @@ def build_etfs(prices):
             fase = "Mejorando"
         else:
             fase = "Rezagado"
+        head = None
+        if pts:
+            fase, head, _, _ = heading(pts)
         pro, con = [], []
         if r.p > r.sma200 and r.sma50 > r.sma200:
             pro.append("Tendencia alcista de largo plazo: arriba de la media de 200 ruedas y con la de 50 por encima de la de 200.")
@@ -358,6 +410,7 @@ def build_etfs(prices):
             pro.append(f"Corrigió {f_pct(r.dd,1)} desde su máximo dentro de una tendencia alcista.")
         d = {k: r2(getattr(r, k)) for k in ["sector", "etf", "p", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200",
                                               "hi52", "lo52", "dd", "volat", "macd_h", "macd_cross", "at", "at_own", "rs_score"]}
+        d.update(rrg=pts, rrg_dates=dates, head=head)
         d.update(fase=fase, rs1=r2(rs1), rs3=r2(rs3), rs6=r2(rs6), pro=pro, con=con,
                  closes=[round(float(x), 2) for x in r.closes])
         out.append(d)
@@ -376,6 +429,25 @@ def r2(x, d=4):
     return x
 
 
+def add_rotation(df, series):
+    if not series or BENCH not in series:
+        return df
+    bw = weekly(series[BENCH])
+    rr, qq, hh, cand, rs = [], [], [], [], []
+    for r in df.itertuples():
+        pts, _ = rrg(series.get(r.t), bw)
+        if not pts:
+            rr.append(None); qq.append(None); hh.append(None); cand.append(False); rs.append(None)
+            continue
+        q, h, dx, dy = heading(pts)
+        good_val = (r.f_val >= 0.5) and (r.af >= 50)
+        c = bool(good_val and ((q == "Mejorando" and dx > 0) or (q == "Rezagado" and dx > 0 and dy > 0)))
+        rr.append(pts); qq.append(q); hh.append(h); cand.append(c)
+        rs.append(round(0.5 * r.af + 50 * r.f_val, 1))
+    df["rrg"], df["rot_q"], df["rot_h"], df["rot_cand"], df["rot_score"] = rr, qq, hh, cand, rs
+    return df
+
+
 def to_json(df, n_universe, spy=None, etfs=None):
     out_rows = []
     keep = ["t", "name", "sector", "region", "p", "mcap", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma20", "sma50",
@@ -387,6 +459,8 @@ def to_json(df, n_universe, spy=None, etfs=None):
         d = {k: r2(getattr(r, k)) for k in keep}
         d["rank"] = int(r.rank) if r.rank is not None and r.rank == r.rank else None
         d["pro"], d["con"], d["grow"] = reasons(r)
+        if getattr(r, "rrg", None):
+            d.update(rrg=r.rrg, rot_q=r.rot_q, rot_h=r.rot_h, rot_cand=bool(r.rot_cand), rot_score=r.rot_score)
         if r.rank is not None:
             d["closes"] = [round(float(x), 2) for x in r.closes]
         out_rows.append(d)
@@ -398,6 +472,7 @@ def to_json(df, n_universe, spy=None, etfs=None):
             "universe": n_universe, "analyzed": int(len(df)), "top_n": TOP_N,
             "method": "AT 50% (tendencia, momentum, RSI/MACD, posición vs máximo) + AF 50% (valuación vs sector, crecimiento, calidad, solidez, analistas).",
             "sectors": sorted(heat, key=lambda h: -h["score"]), "spy": spy, "etfs": etfs or [],
+            "rrg_dates": next((e["rrg_dates"] for e in (etfs or []) if e.get("rrg_dates")), []),
             "rows": out_rows}
 
 
@@ -412,7 +487,7 @@ def main():
     syms = [u[0] for u in uni]
     print("Universo:", len(syms))
 
-    prices = {}
+    prices, series = {}, {}
     dl = syms + [BENCH] + list(SECTOR_ETF.values())
     for i in range(0, len(dl), 100):
         chunk = dl[i:i + 100]
@@ -425,6 +500,7 @@ def main():
                 v = sub["Volume"].values.astype(float)
                 if np.isfinite(c).sum() >= 210:
                     prices[s] = (c[np.isfinite(c)], v[np.isfinite(c)])
+                    series[s] = sub["Close"].dropna()
             except Exception:
                 pass
         time.sleep(1)
@@ -439,7 +515,9 @@ def main():
     print("Con fundamentales:", sum(1 for v in infos.values() if v))
 
     df = build(uni, prices, infos)
-    spy, etfs = build_etfs(prices)
+    df = add_rotation(df, series)
+    spy, etfs = build_etfs(prices, series)
+    print("Candidatas de rotación:", list(df[df.get("rot_cand", False) == True].t) if "rot_cand" in df else [])
     print("ETFs sectoriales:", [(e["etf"], round(e["at"]), e["fase"]) for e in etfs])
     with open("data.json", "w", encoding="utf-8") as f:
         json.dump(to_json(df, len(syms), spy, etfs), f, ensure_ascii=False, separators=(",", ":"))
