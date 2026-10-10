@@ -1,0 +1,35 @@
+name: Screener diario PROSPEI
+
+on:
+  schedule:
+    - cron: "35 21 * * 1-5"   # 18:35 hora Argentina, lunes a viernes
+  workflow_dispatch:           # boton "Run workflow" para correrlo a mano
+
+permissions:
+  contents: write
+
+jobs:
+  screener:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar librerias
+        run: pip install yfinance pandas numpy requests lxml
+
+      - name: Correr screener
+        run: python screener.py
+
+      - name: Guardar data.json
+        run: |
+          git config user.name "screener-bot"
+          git config user.email "screener-bot@users.noreply.github.com"
+          git add data.json
+          git diff --cached --quiet && echo "Sin cambios" && exit 0
+          git commit -m "Actualiza screener $(date -u +'%Y-%m-%d')"
+          git push
