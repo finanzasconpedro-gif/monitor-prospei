@@ -448,7 +448,91 @@ def add_rotation(df, series):
     return df
 
 
-def to_json(df, n_universe, spy=None, etfs=None):
+# ---------------------------------------------------------------- valor y momentum
+VM_WEEKS = 26
+
+
+def fair_value(r):
+    """Valor justo estimado: promedio de (EPS esperado x P/E mediano del sector) y precio objetivo de analistas."""
+    vals, src = [], []
+    if pd.notna(r.fwd_eps) and r.fwd_eps > 0 and pd.notna(r.sec_fpe) and r.sec_fpe > 0:
+        v = r.fwd_eps * r.sec_fpe
+        if 0.3 < v / r.p < 3:
+            vals.append(v); src.append("P/E del sector")
+    if r.n_an >= 3 and pd.notna(r.target) and 0.3 < r.target / r.p < 3:
+        vals.append(r.target); src.append("analistas")
+    if not vals:
+        return None, None
+    return float(np.mean(vals)), " + ".join(src)
+
+
+def momentum_index(c):
+    """Índice de momentum de -100 a +100 (serie diaria): medias 50/200, RSI y MACD."""
+    s50, s200 = c.rolling(50).mean(), c.rolling(200).mean()
+    d = c.diff()
+    up = d.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+    dn = (-d.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    rsi_s = 100 - 100 / (1 + up / dn.replace(0, np.nan))
+    macd = c.ewm(span=12, adjust=False).mean() - c.ewm(span=26, adjust=False).mean()
+    hist = macd - macd.ewm(span=9, adjust=False).mean()
+    cl = lambda x: x.clip(-1, 1)
+    m = 100 * (0.35 * cl((c / s50 - 1) / 0.10) + 0.25 * cl((c / s200 - 1) / 0.20)
+               + 0.25 * cl((rsi_s - 50) / 25) + 0.15 * cl(hist / (c * 0.01)))
+    return m, rsi_s
+
+
+def vm_zone(x, y):
+    if x < 0:
+        return "Compra" if y >= 0 else "Vigilar"
+    return "Mantener" if y >= 0 else "Evitar"
+
+
+def vm_status(pts):
+    x, y = pts[-1]
+    z = vm_zone(x, y)
+    zp = vm_zone(*pts[-9]) if len(pts) >= 9 else vm_zone(*pts[0])
+    x3, y3 = pts[-4] if len(pts) >= 4 else pts[0]
+    dx, dy = x - x3, y - y3
+    if z == "Compra":
+        if zp in ("Vigilar", "Evitar"):
+            st = "Recién entró a zona de compra"
+        elif x > -0.05 and dx > 0:
+            st = "Llegando a su valor justo"
+        else:
+            st = "En zona de compra"
+    elif z == "Vigilar":
+        st = "Girando: el momentum mejora" if dy > 8 else "Barata pero sigue débil"
+    elif z == "Mantener":
+        st = "Alcanzó su valor justo" if zp == "Compra" else "Sin margen, tendencia alcista"
+    else:
+        st = "Cara y perdiendo fuerza"
+    return z, zp, st
+
+
+def add_value_momentum(df, series):
+    out = {k: [] for k in ["vm", "fair", "fair_src", "fair_up", "vm_z", "vm_zp", "vm_st"]}
+    for r in df.itertuples():
+        fair, src = fair_value(r)
+        ser = series.get(r.t) if series else None
+        pts = None
+        if fair and ser is not None and len(ser) > 260:
+            m, _ = momentum_index(ser)
+            w = pd.DataFrame({"c": ser, "m": m}).resample("W-FRI").last().dropna().tail(VM_WEEKS + 1)
+            if len(w) >= 8:
+                pts = [[round(float(c / fair - 1), 4), round(float(mm), 1)] for c, mm in zip(w.c, w.m)]
+        if pts:
+            z, zp, st = vm_status(pts)
+        else:
+            z = zp = st = None
+        out["vm"].append(pts); out["fair"].append(fair); out["fair_src"].append(src)
+        out["fair_up"].append((fair / r.p - 1) if fair else None)
+        out["vm_z"].append(z); out["vm_zp"].append(zp); out["vm_st"].append(st)
+    for k, v in out.items():
+        df[k] = v
+    return df
+
+
+def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None):
     out_rows = []
     keep = ["t", "name", "sector", "region", "p", "mcap", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma20", "sma50",
             "sma200", "hi52", "lo52", "dd", "volat", "vol_ratio", "macd_h", "macd_cross", "pe", "fpe", "peg", "pb",
@@ -459,8 +543,9 @@ def to_json(df, n_universe, spy=None, etfs=None):
         d = {k: r2(getattr(r, k)) for k in keep}
         d["rank"] = int(r.rank) if r.rank is not None and r.rank == r.rank else None
         d["pro"], d["con"], d["grow"] = reasons(r)
-        if getattr(r, "rrg", None):
-            d.update(rrg=r.rrg, rot_q=r.rot_q, rot_h=r.rot_h, rot_cand=bool(r.rot_cand), rot_score=r.rot_score)
+        if getattr(r, "vm", None):
+            d.update(vm=r.vm, fair=r2(r.fair, 2), fair_src=r.fair_src, fair_up=r2(r.fair_up), vm_z=r.vm_z,
+                     vm_zp=r.vm_zp, vm_st=r.vm_st)
         if r.rank is not None:
             d["closes"] = [round(float(x), 2) for x in r.closes]
         out_rows.append(d)
@@ -473,6 +558,7 @@ def to_json(df, n_universe, spy=None, etfs=None):
             "method": "AT 50% (tendencia, momentum, RSI/MACD, posición vs máximo) + AF 50% (valuación vs sector, crecimiento, calidad, solidez, analistas).",
             "sectors": sorted(heat, key=lambda h: -h["score"]), "spy": spy, "etfs": etfs or [],
             "rrg_dates": next((e["rrg_dates"] for e in (etfs or []) if e.get("rrg_dates")), []),
+            "vm_dates": vm_dates or [],
             "rows": out_rows}
 
 
@@ -515,12 +601,13 @@ def main():
     print("Con fundamentales:", sum(1 for v in infos.values() if v))
 
     df = build(uni, prices, infos)
-    df = add_rotation(df, series)
+    df = add_value_momentum(df, series)
     spy, etfs = build_etfs(prices, series)
-    print("Candidatas de rotación:", list(df[df.get("rot_cand", False) == True].t) if "rot_cand" in df else [])
+    vm_dates = [d.strftime("%Y-%m-%d") for d in series[BENCH].resample("W-FRI").last().dropna().tail(VM_WEEKS + 1).index] if BENCH in series else []
+    print("Zonas valor/momentum:", df.vm_z.value_counts().to_dict())
     print("ETFs sectoriales:", [(e["etf"], round(e["at"]), e["fase"]) for e in etfs])
     with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(to_json(df, len(syms), spy, etfs), f, ensure_ascii=False, separators=(",", ":"))
+        json.dump(to_json(df, len(syms), spy, etfs, vm_dates), f, ensure_ascii=False, separators=(",", ":"))
     print("OK data.json:", len(df), "papeles. Top:", list(df[df["rank"].notna()].t))
 
 
