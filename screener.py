@@ -13,10 +13,14 @@ import pandas as pd
 import requests
 
 ADR_AR = ["GGAL", "YPF", "PAM", "BMA", "BBAR", "SUPV", "CEPU", "TGS", "EDN", "CRESY",
-          "IRS", "LOMA", "TEO", "VIST", "GLOB", "MELI", "DESP", "CAAP", "BIOX", "ADGO"]
-ADR_BR = ["PBR", "VALE", "ITUB", "BBD", "ABEV", "NU", "SBS", "EBR", "GGB", "SID", "ERJ",
-          "SUZ", "BRFS", "UGP", "CIG", "ELP", "BSBR", "XP", "STNE", "PAGS", "VIV", "TIMB", "BAK"]
+          "IRS", "LOMA", "TEO", "VIST", "GLOB", "MELI", "CAAP", "BIOX"]
+ADR_BR = ["PBR", "VALE", "ITUB", "BBD", "ABEV", "NU", "SBS", "GGB", "SID",
+          "SUZ", "UGP", "CIG", "BSBR", "XP", "STNE", "PAGS", "VIV", "TIMB", "BAK"]
 TOP_N = 30
+SECTOR_ETF = {"Tecnología": "XLK", "Financiero": "XLF", "Salud": "XLV", "Consumo discrecional": "XLY",
+              "Consumo básico": "XLP", "Industrial": "XLI", "Energía": "XLE", "Utilities": "XLU",
+              "Materiales": "XLB", "Real estate": "XLRE", "Comunicaciones": "XLC"}
+BENCH = "SPY"
 UA = {"User-Agent": "Mozilla/5.0 (PROSPEI screener)"}
 
 SECTOR_ES = {
@@ -293,6 +297,75 @@ def build(universe, prices, infos):
     return df
 
 
+def build_etfs(prices):
+    """AT de los ETFs sectoriales y fase relativa contra el S&P 500 (SPY)."""
+    if BENCH not in prices:
+        return None, []
+    spy = technical(*prices[BENCH])
+    rows = []
+    for sec, etf in SECTOR_ETF.items():
+        if etf not in prices:
+            continue
+        t = technical(*prices[etf])
+        if not t:
+            continue
+        rows.append(dict(t, sector=sec, etf=etf, closes=prices[etf][0][-450:]))
+    if not rows:
+        return spy, []
+    df = pd.DataFrame(rows)
+    # 60% técnico propio + 40% fuerza relativa contra el S&P 500 (3, 6 y 1 mes)
+    rs_mix = 0.5 * (df.r3m - spy["r3m"]) + 0.3 * (df.r6m - spy["r6m"]) + 0.2 * (df.r1m - spy["r1m"])
+    df["at_own"] = score_tech(df)
+    df["rs_score"] = 100 * pct_rank(rs_mix).fillna(0.5)
+    df["at"] = (0.6 * df.at_own + 0.4 * df.rs_score).clip(0, 100)
+    out = []
+    for r in df.itertuples():
+        rs3 = (r.r3m - spy["r3m"]) if r.r3m is not None else None
+        rs1 = (r.r1m - spy["r1m"]) if r.r1m is not None else None
+        rs6 = (r.r6m - spy["r6m"]) if r.r6m is not None else None
+        if rs3 is None or rs1 is None:
+            fase = "—"
+        elif rs3 >= 0 and rs1 >= 0:
+            fase = "Liderando"
+        elif rs3 >= 0:
+            fase = "Perdiendo impulso"
+        elif rs1 >= 0:
+            fase = "Mejorando"
+        else:
+            fase = "Rezagado"
+        pro, con = [], []
+        if r.p > r.sma200 and r.sma50 > r.sma200:
+            pro.append("Tendencia alcista de largo plazo: arriba de la media de 200 ruedas y con la de 50 por encima de la de 200.")
+        elif r.p > r.sma200:
+            pro.append("Cotiza arriba de su media de 200 ruedas.")
+        else:
+            con.append(f"Está {f_pct(r.p/r.sma200-1,1)} debajo de su media de 200 ruedas: tendencia de largo plazo bajista.")
+        if rs3 is not None:
+            (pro if rs3 >= 0 else con).append(f"En 3 meses rindió {f_pct(rs3,1)} contra el S&P 500.")
+        if rs1 is not None:
+            (pro if rs1 >= 0 else con).append(f"En el último mes rindió {f_pct(rs1,1)} contra el S&P 500.")
+        if r.rsi > 70:
+            con.append(f"RSI en {fx(r.rsi,0)}: sobrecomprado en el corto plazo.")
+        elif r.rsi < 30:
+            pro.append(f"RSI en {fx(r.rsi,0)}: sobrevendido, posible rebote.")
+        else:
+            pro.append(f"RSI en {fx(r.rsi,0)}: sin sobrecompra ni sobreventa.")
+        if r.macd_cross:
+            pro.append("El MACD cruzó al alza en los últimos días.")
+        elif r.macd_h < 0:
+            con.append("El MACD está debajo de su señal: impulso de corto plazo débil.")
+        if -0.12 <= r.dd <= -0.04 and r.p > r.sma200:
+            pro.append(f"Corrigió {f_pct(r.dd,1)} desde su máximo dentro de una tendencia alcista.")
+        d = {k: r2(getattr(r, k)) for k in ["sector", "etf", "p", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200",
+                                              "hi52", "lo52", "dd", "volat", "macd_h", "macd_cross", "at", "at_own", "rs_score"]}
+        d.update(fase=fase, rs1=r2(rs1), rs3=r2(rs3), rs6=r2(rs6), pro=pro, con=con,
+                 closes=[round(float(x), 2) for x in r.closes])
+        out.append(d)
+    spy_out = {k: r2(spy[k]) for k in ["p", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200", "dd"]}
+    spy_out["above200"] = bool(spy["p"] > spy["sma200"])
+    return spy_out, sorted(out, key=lambda e: -(e["at"] or 0))
+
+
 def r2(x, d=4):
     if x is None or (isinstance(x, float) and not math.isfinite(x)):
         return None
@@ -303,7 +376,7 @@ def r2(x, d=4):
     return x
 
 
-def to_json(df, n_universe):
+def to_json(df, n_universe, spy=None, etfs=None):
     out_rows = []
     keep = ["t", "name", "sector", "region", "p", "mcap", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma20", "sma50",
             "sma200", "hi52", "lo52", "dd", "volat", "vol_ratio", "macd_h", "macd_cross", "pe", "fpe", "peg", "pb",
@@ -324,12 +397,15 @@ def to_json(df, n_universe):
     return {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
             "universe": n_universe, "analyzed": int(len(df)), "top_n": TOP_N,
             "method": "AT 50% (tendencia, momentum, RSI/MACD, posición vs máximo) + AF 50% (valuación vs sector, crecimiento, calidad, solidez, analistas).",
-            "sectors": sorted(heat, key=lambda h: -h["score"]), "rows": out_rows}
+            "sectors": sorted(heat, key=lambda h: -h["score"]), "spy": spy, "etfs": etfs or [],
+            "rows": out_rows}
 
 
 def main():
     import yfinance as yf
-    uni = [(s, n, g, "EE.UU.") for s, n, g in sp500()]
+    # segunda clase de acciones de la misma empresa: queda solo una
+    DUP = {"GOOG", "FOX", "NWS"}
+    uni = [(s, n, g, "EE.UU.") for s, n, g in sp500() if s not in DUP]
     seen = {u[0] for u in uni}
     uni += [(s, s, "", "Argentina") for s in ADR_AR if s not in seen]
     uni += [(s, s, "", "Brasil") for s in ADR_BR if s not in seen]
@@ -337,8 +413,9 @@ def main():
     print("Universo:", len(syms))
 
     prices = {}
-    for i in range(0, len(syms), 100):
-        chunk = syms[i:i + 100]
+    dl = syms + [BENCH] + list(SECTOR_ETF.values())
+    for i in range(0, len(dl), 100):
+        chunk = dl[i:i + 100]
         data = yf.download(chunk, period="2y", interval="1d", auto_adjust=True, group_by="ticker",
                            threads=True, progress=False)
         for s in chunk:
@@ -357,13 +434,15 @@ def main():
 
     infos = {}
     with ThreadPoolExecutor(max_workers=4) as ex:
-        for sym, inf in ex.map(fetch_info, list(prices)):
+        for sym, inf in ex.map(fetch_info, [s for s in prices if s in set(syms)]):
             infos[sym] = inf
     print("Con fundamentales:", sum(1 for v in infos.values() if v))
 
     df = build(uni, prices, infos)
+    spy, etfs = build_etfs(prices)
+    print("ETFs sectoriales:", [(e["etf"], round(e["at"]), e["fase"]) for e in etfs])
     with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(to_json(df, len(syms)), f, ensure_ascii=False, separators=(",", ":"))
+        json.dump(to_json(df, len(syms), spy, etfs), f, ensure_ascii=False, separators=(",", ":"))
     print("OK data.json:", len(df), "papeles. Top:", list(df[df["rank"].notna()].t))
 
 
