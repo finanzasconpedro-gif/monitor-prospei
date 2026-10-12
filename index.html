@@ -97,6 +97,11 @@ tr[data-t]{cursor:pointer}
 .tc b{font-weight:700}
 .tmtip{position:fixed;z-index:60;background:#14171e;color:#fff;border:1px solid #3a3f4b;border-radius:8px;padding:8px 10px;font-size:12.5px;pointer-events:none;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .tmtip.hide{display:none}
+.lensbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+.lens-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lens-g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+@media (max-width:640px){.lens-g{grid-template-columns:1fr}}
+.lens b{display:block;font-size:14px;margin:2px 0}
 .setup.s-up{background:var(--upbg);color:var(--up)}
 .setup.s-warn{background:var(--warnbg);color:var(--warn)}
 .setup.s-info{background:color-mix(in srgb,#8a5cf6 14%,transparent);color:#7c4ddb}
@@ -280,7 +285,7 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
       </div>
       <h3 style="margin:4px 0 8px;font-size:15px" id="vm-tbl-title">En zona de compra</h3>
       <div class="tw"><table id="tb-vm"></table></div>
-      <p class="note" style="margin-top:10px">Tocá una fila para ver su recorrido en el mapa. Valor justo estimado = promedio de (ganancia por acción esperada × P/E mediano de su sector) y precio objetivo de los analistas; si cambian las ganancias esperadas, cambia el valor justo. Herramienta de screening, no es una recomendación.</p>
+      <p class="note" style="margin-top:10px">Tocá una fila para ver su recorrido en el mapa. Valor justo estimado = promedio de tres métodos: ganancia esperada × P/E mediano de su industria (o sector si tiene menos de 5 pares), ganancia esperada × su propio P/E promedio de los últimos años, y precio objetivo de los analistas. Está <b>calibrado contra el mercado</b>: la acción típica del S&amp;P 500 queda justo en su valor justo, así el eje muestra cuánto más barata o cara está cada una frente al resto. Descuentos de más de 35% se marcan como "valuación dudosa". Si los datos de una acción quedan fuera de la escala, al tocarla el mapa se amplía para mostrar su recorrido completo. Herramienta de screening, no es una recomendación.</p>
     </div>
   </section>
 
@@ -744,6 +749,7 @@ function motionMap(cfg){
   cfg.items.forEach(it=>{const p=it.pts[it.pts.length-1];if(!p)return;const z=cfg.zoneOf(p[0],p[1]);
     const g=svgEl('g',{style:'cursor:pointer'},gDots);
     const c=svgEl('circle',{cx:X(p[0]),cy:Y(p[1]),r:it.r,fill:cfg.zcol[z],stroke:'#fff','stroke-width':'.8',opacity:cfg.dotOp||'.85'},g);
+    if(p[0]<cfg.bx[0]||p[0]>cfg.bx[1]){const lf=p[0]<cfg.bx[0];const a=svgEl('text',{x:X(p[0])+(lf?it.r+2:-it.r-2),y:Y(p[1])+4,'font-size':'11','font-weight':'700','text-anchor':lf?'start':'end',fill:cfg.zcol[z],style:'pointer-events:none'},g);a.textContent=(lf?'◂ ':'')+(cfg.fmtX?cfg.fmtX(p[0]):'')+(lf?'':' ▸')}
     const tt=svgEl('title',{},c);tt.textContent=it.title;
     if(it.label){const t=svgEl('text',{x:X(p[0])+it.r+3,y:Y(p[1])+4,'font-size':'11.5','font-weight':'700',style:'fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px;pointer-events:none'},g);t.textContent=it.label}
     g.addEventListener('click',e=>{e.stopPropagation();select(it.id)});
@@ -756,8 +762,10 @@ function motionMap(cfg){
     cfg.panel.innerHTML=cfg.emptyHtml;cfg.panel.classList.remove('on');
     if(cfg.onClear)cfg.onClear();
   }
-  function select(id,{noAnim}={}){
-    const d=dots[id];if(!d)return;selId=id;
+  function select(id,{noAnim,fitted}={}){
+    const d=dots[id];if(!d)return;
+    if(!fitted&&cfg.onOut&&d.it.pts.some(p=>p[0]<cfg.bx[0]||p[0]>cfg.bx[1])){cfg.onOut(id);return}
+    selId=id;
     Object.values(dots).forEach(o=>o.g.style.opacity=o===d?'0':'.12');
     gSel.innerHTML='';
     const P=d.it.pts,S=catmull(P,16).map(p=>({x:X(p.x),y:Y(p.y),w:p.w,rx:p.x,ry:p.y}));
@@ -844,9 +852,11 @@ function renderVM(){
   rows=rows.filter(o=>(S.vm.reg==='us'?o.region==='EE.UU.':o.region!=='EE.UU.')&&(!S.vm.sec||o.sector===S.vm.sec));
   const xs=rows.map(o=>o.vm[o.vm.length-1][0]).sort((a,b)=>a-b);
   const q=f=>xs.length?xs[Math.round(f*(xs.length-1))]:0;
-  const m=Math.min(0.6,Math.max(0.25,Math.abs(q(.05)),Math.abs(q(.95))))*1.12;
+  let m=Math.min(0.6,Math.max(0.25,Math.abs(q(.05)),Math.abs(q(.95))))*1.12;
+  const foc=S.vm.focus&&rows.find(o=>o.t===S.vm.focus);
+  if(foc)m=Math.max(m,...foc.vm.map(p=>Math.abs(p[0])))*1.08;
   const mc=rows.map(o=>o.mcap||0).filter(x=>x>0).sort((a,b)=>a-b),mmax=mc[mc.length-1]||1;
-  const lab=new Set(rows.filter(o=>o.vm_z==='Compra').sort((a,b)=>(b.fair_up||0)*(b.af||0)-(a.fair_up||0)*(a.af||0)).slice(0,8).map(o=>o.t));
+  const lab=new Set(rows.filter(o=>o.vm_z==='Compra'&&!o.vm_doubt).sort((a,b)=>(b.fair_up||0)*(b.af||0)-(a.fair_up||0)*(a.af||0)).slice(0,8).map(o=>o.t));
   const cnt={};rows.forEach(o=>{cnt[o.vm_z]=(cnt[o.vm_z]||0)+1});
   $('#vm-count').innerHTML=['Compra','Mantener','Vigilar','Evitar'].map(z=>`<span class="fase" style="background:${ZCOL[z]}1f;color:${ZCOL[z]}">${z} ${cnt[z]||0}</span>`).join(' ');
   const ticks=[-0.5,-0.4,-0.3,-0.2,-0.1,0.1,0.2,0.3,0.4,0.5].filter(v=>m>0.35?Math.round(v*10)%2===0:true).map(v=>({v,t:(v>0?'+':'')+Math.round(v*100)+'%'}));
@@ -870,7 +880,9 @@ function renderVM(){
         <div><span>RSI · AF · Puntaje</span><b>${fmt(o.rsi,0)} · ${Math.round(o.af)} · ${Math.round(o.score)}</b></div>`:''}
       </div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="chip" data-mm="play">↻ Repetir</button><button class="chip on" data-mm="open">Ver ficha</button></div>`},
-    onOpen:id=>openDetail(id)});
+    onOpen:id=>openDetail(id),fmtX:v=>pct(v,0),
+    onOut:id=>{S.vm.focus=id;S.vm.pendingSel=id;renderVM()},
+    onClear:()=>{if(S.vm.focus){S.vm.focus=null;setTimeout(renderVM,0)}}});
   const f=VMF[S.vm.flt],list=rows.filter(f);
   list.forEach(o=>o.mom=o.vm[o.vm.length-1][1]);
   const cols=[
@@ -889,7 +901,8 @@ function renderVM(){
   table($('#tb-vm'),'vm',cols,list,null,150);
   $('#tb-vm').querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>{S.mmVm.select(tr.dataset.t);$('#vm-map').scrollIntoView({behavior:'smooth',block:'center'})});
   $('#vm-tbl-title').textContent=`${VMT[S.vm.flt]} (${list.length})`;
-  if(prev)S.mmVm.select(prev,{noAnim:true});
+  if(S.vm.pendingSel){const id=S.vm.pendingSel;S.vm.pendingSel=null;S.mmVm.select(id,{fitted:true})}
+  else if(prev)S.mmVm.select(prev,{noAnim:true,fitted:true});
 }
 $$('[data-vmr]').forEach(b=>b.onclick=()=>{$$('[data-vmr]').forEach(x=>x.classList.toggle('on',x===b));S.vm.reg=b.dataset.vmr;renderVM()});
 $$('[data-vmf]').forEach(b=>b.onclick=()=>{$$('[data-vmf]').forEach(x=>x.classList.toggle('on',x===b));S.vm.flt=b.dataset.vmf;renderVM()});
@@ -1030,7 +1043,8 @@ function openDetail(t){
       ${pill('Valuación',o.f_val*100)}${pill('Crecimiento',o.f_gro*100)}${pill('Calidad',o.f_qua*100)}${pill('Solidez financiera',o.f_sol*100)}${pill('Visión analistas',o.f_ana*100)}
     </div>
     ${o.closes?chartSvg(o.closes):'<p class="note">El gráfico está disponible para los papeles del top.</p>'}
-    ${o.vm_z?`<div class="cedbox" style="margin-top:10px">◎ Valor justo estimado: <b>US$ ${fmt(o.fair)}</b> <span class="note">(${esc(o.fair_src)})</span> · recorrido restante <b class="${cls(o.fair_up)}">${pct(o.fair_up,1)}</b> · etapa <span class="fase" style="background:${ZCOL[o.vm_z]}22;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span> ${esc(o.vm_st)}${o.vm_zp&&o.vm_zp!==o.vm_z?` <span class="note">(hace 8 semanas: ${esc(o.vm_zp)})</span>`:''}</div>`:''}
+    ${valLensHtml(o)}
+    ${o.vm_z?`<div class="cedbox" style="margin-top:10px">◎ Valor justo estimado${o.vm_doubt?' <span class="alert-tag">⚠️ valuación dudosa: revisar</span>':''}: <b>US$ ${fmt(o.fair)}</b> <span class="note">(${esc(o.fair_src)})</span> · recorrido restante <b class="${cls(o.fair_up)}">${pct(o.fair_up,1)}</b> · etapa <span class="fase" style="background:${ZCOL[o.vm_z]}22;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span> ${esc(o.vm_st)}${o.vm_zp&&o.vm_zp!==o.vm_z?` <span class="note">(hace 8 semanas: ${esc(o.vm_zp)})</span>`:''}</div>`:''}
     <div class="lists">
       <div class="pro"><h4>Por qué aparece como oportunidad</h4><ul>${li(o.pro)}</ul></div>
       <div class="gro"><h4>Perspectiva de crecimiento</h4><ul>${li(o.grow)}</ul></div>
@@ -1045,7 +1059,7 @@ function openDetail(t){
         ${kv('MACD',o.macd_h>0?'Positivo':'Negativo')}
       </div></div>
       <div><h4 style="margin:0 0 6px">Análisis fundamental</h4><div class="kv">
-        ${kv('P/E histórico',o.pe>0?fmt(o.pe,1)+'x':'—')}${kv('P/E esperado',o.fpe>0?fmt(o.fpe,1)+'x':'—')}${kv('P/E esperado sector',o.sec_fpe?fmt(o.sec_fpe,1)+'x':'—')}
+        ${kv('P/E histórico',o.pe>0?fmt(o.pe,1)+'x':'—')}${kv('P/E esperado',o.fpe>0?fmt(o.fpe,1)+'x':'—')}${kv('P/E esperado '+(o.peer_lbl==='su industria'?'industria':'sector'),o.sec_fpe?fmt(o.sec_fpe,1)+'x':'—')}${kv('P/E promedio histórico',o.pe_hist?fmt(o.pe_hist,1)+'x ('+(o.hist_n||'')+' años)':'—')}${kv('Precio / ventas (hoy · histórico)',o.ps?fmt(o.ps,1)+'x · '+(o.ps_hist?fmt(o.ps_hist,1)+'x':'—'):'—')}${kv('Dividendo promedio 5 años',o.div5?fmt(o.div5,2)+'%':'—')}
         ${kv('PEG',o.peg>0?fmt(o.peg,2):'—')}${kv('Precio / valor libros',o.pb>0?fmt(o.pb,1)+'x':'—')}
         ${kv('Crec. ventas (a/a)',pct(o.rev_g,1))}${kv('Crec. ganancias (a/a)',pct(o.eps_g,1))}
         ${kv('ROE',o.roe==null?'—':fmt(o.roe*100,1)+'%')}${kv('Margen neto',o.margin==null?'—':fmt(o.margin*100,1)+'%')}
@@ -1073,6 +1087,18 @@ const SETUPT={'Corrección con señal de rebote':'Tendencia alcista confirmada, 
  'Sobrevendida con buenos fundamentos':'Fuera de tendencia alcista, RSI debajo de 35 y fundamentos sólidos',
  'Giro técnico':'El MACD cruzó al alza en los últimos días','Valor':'Sin señal técnica particular'};
 const setupChip=t=>`<span class="setup ${SETUPC[t]?'s-'+SETUPC[t]:''}" title="${esc(SETUPT[t]||'')}">${esc(t)}</span>`;
+function valLensHtml(o){
+  const cell=(t,v,detail,thrCheap,thrDear,an)=>{let cls2='',lab='Sin dato';
+    if(v!=null){if(v<thrCheap){cls2='up';lab='Barata'}else if(v>thrDear){cls2='down';lab='Cara'}else{lab='En línea'}}
+    const amt=v==null?'':an?` · potencial ${pct(-v,0)}`:Math.abs(v)<0.005?'':` · ${fmt(Math.abs(v)*100,0)}% ${v<0?'más barata':'más cara'}`;
+    return `<div class="lens"><div class="note">${t}</div><b class="${cls2}">${lab}${amt}</b><div class="note">${detail}</div></div>`};
+  const hd=[];if(o.pe_hist&&o.pe>0)hd.push(`P/E ${fmt(o.pe,1)}x vs ${fmt(o.pe_hist,1)}x`);if(o.ps&&o.ps_hist)hd.push(`P/V ${fmt(o.ps,1)}x vs ${fmt(o.ps_hist,1)}x`);if(o.div>0&&o.div5)hd.push(`Div. ${fmt(o.div,2)}% vs ${fmt(o.div5,2)}%`);
+  const verdict={Barata:['up','Barata en '+o.val_cheap+' de '+o.val_n+' miradas'],Cara:['down','Cara en la mayoría de las miradas'],Neutral:['','Sin consenso: valuación neutral'],'Pico de ciclo':['down','Pico de ciclo: el P/E bajo no es señal de barata']}[o.val_verdict]||['',''];
+  return `<div class="lensbox"><div class="lens-h"><b>Valuación: tres miradas</b> <span class="fase" style="${verdict[0]==='up'?'background:var(--upbg);color:var(--up)':verdict[0]==='down'?'background:var(--downbg);color:var(--down)':''}">${esc(verdict[1])}</span></div>
+    <div class="lens-g">${cell('vs '+esc(o.peer_lbl||'su sector'),o.v_peer,o.fpe>0&&o.sec_fpe?`P/E esp. ${fmt(o.fpe,1)}x vs ${fmt(o.sec_fpe,1)}x`:'',-0.15,0.15)}
+    ${cell('vs su propia historia',o.v_hist,hd.join(' · ')||'Sin historial disponible',-0.10,0.10)}
+    ${cell('vs analistas',o.v_an,o.n_an>=3&&o.target?`Objetivo US$ ${fmt(o.target)} (${o.n_an} analistas)`:'Menos de 3 analistas',-0.20,0,1)}</div></div>`;
+}
 const LIGHTN={cal:'Calidad',val:'Valuación',tec:'Técnico',evt:'Evento'};
 const lightTxt={cal:['Débil o caja negativa','Aceptable','Sólida'],val:['Cara o pico de ciclo','Neutral','Barata vs sector'],tec:['Débil','Neutral','Sano'],evt:['Balance en ≤7 días','Balance en ≤3 semanas','Sin balance cercano']};
 const lightsHtml=L=>L?`<span class="lights">${['cal','val','tec','evt'].map(k=>`<i class="l${L[k]==null?'null':L[k]}" title="${LIGHTN[k]}: ${L[k]==null?'sin dato':lightTxt[k][L[k]]}"></i>`).join('')}</span>`:'';
@@ -1080,6 +1106,7 @@ function alertTags(o){const t=[];
   if(o.earn_days!=null&&o.earn_days>=0&&o.earn_days<=14)t.push(`⚠️ Balance en ${o.earn_days===0?'hoy':o.earn_days===1?'1 día':o.earn_days+' días'}`);
   if(o.cyc)t.push('⚠️ Pico de ciclo');
   if(o.one_off)t.push('⚠️ Ganancia no recurrente');
+  if(o.vm_doubt)t.push('⚠️ Valuación dudosa');
   if(o.fcf!=null&&o.fcf<0&&o.sector!=='Financiero')t.push('⚠️ Caja negativa');
   return t.map(x=>`<span class="alert-tag">${x}</span>`).join('')}
 function renderKpisUS(){
