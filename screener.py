@@ -206,10 +206,13 @@ def score_tech(df):
 def score_fund(df):
     """Cada pilar 0..1 por percentil; la valuacion se compara dentro del sector."""
     fpe = df.fpe.where(df.fpe > 0)
-    val = fpe.groupby(df.sector).rank(pct=True, ascending=False)
-    peg = df.peg.where((df.peg > 0) & (df.peg < 10))
-    val = (0.7 * val + 0.3 * pct_rank(peg, False)).fillna(val).fillna(0.15)
-    val = val.where(df.fpe.notna() | df.pe.notna(), 0.15)
+    v_peer = fpe.groupby(df.peer_grp).rank(pct=True, ascending=False)          # vs su industria/sector
+    v_hist = pct_rank(df.v_hist, False)                                         # vs su propia historia
+    v_peg = pct_rank(df.peg.where((df.peg > 0) & (df.peg < 10)), False)
+    parts = pd.concat([v_peer * 0.5, v_hist * 0.3, v_peg * 0.2], axis=1)
+    wts = pd.concat([v_peer.notna() * 0.5, v_hist.notna() * 0.3, v_peg.notna() * 0.2], axis=1).sum(axis=1)
+    val = (parts.sum(axis=1, skipna=True) / wts.replace(0, np.nan)).fillna(0.15)
+    val = val.where(df.fpe.notna() | df.pe.notna() | df.v_hist.notna(), 0.15)
     # trampa cíclica: P/E bajo en industria cíclica cerca del pico de ganancias -> techo a la valuación
     val = val.where(~df.cyc, val.clip(upper=0.3))
     fin = df.sector == "Financiero"
@@ -244,7 +247,7 @@ def lights(r):
     q = lv(r.f_qua, 0.6, 0.35)
     if r.sector != "Financiero" and pd.notna(r.fcf) and r.fcf < 0:
         q = 0
-    v = 0 if r.cyc else lv(r.f_val, 0.6, 0.35)
+    v = {"Pico de ciclo": 0, "Cara": 0, "Barata": 2}.get(r.val_verdict, 1)
     t = lv(r.at, 65, 45)
     if pd.notna(r.earn_days) and 0 <= r.earn_days <= 7:
         e = 0
@@ -348,9 +351,9 @@ def reasons(r):
     # Fundamental
     if pd.notna(r.fpe) and r.fpe > 0:
         if pd.notna(r.sec_fpe) and r.fpe < r.sec_fpe * 0.85 and not r.cyc:
-            pro.append(f"P/E esperado de {fx(r.fpe,1)}x contra {fx(r.sec_fpe,1)}x de la mediana de su sector: cotiza con descuento.")
+            pro.append(f"P/E esperado de {fx(r.fpe,1)}x contra {fx(r.sec_fpe,1)}x de la mediana de {r.peer_lbl}: cotiza con descuento.")
         elif pd.notna(r.sec_fpe) and r.fpe > r.sec_fpe * 1.4:
-            con.append(f"P/E esperado de {fx(r.fpe,1)}x, caro frente a {fx(r.sec_fpe,1)}x de su sector.")
+            con.append(f"P/E esperado de {fx(r.fpe,1)}x, caro frente a {fx(r.sec_fpe,1)}x de {r.peer_lbl}.")
     elif pd.notna(r.pe) and r.pe < 0 or (pd.notna(r.eps) and r.eps < 0):
         con.append("Sin ganancias en los últimos 12 meses.")
     if pd.notna(r.roe) and r.roe > 0.20:
@@ -359,6 +362,16 @@ def reasons(r):
         pro.append(f"Margen neto de {fx(r.margin*100,0)}%.")
     elif pd.notna(r.margin) and r.margin < 0:
         con.append("Margen neto negativo.")
+    if pd.notna(r.pe_hist) and pd.notna(r.pe) and r.pe > 0:
+        dv = r.pe / r.pe_hist - 1
+        if dv < -0.15:
+            pro.append(f"Cotiza a P/E {fx(r.pe,1)}x contra su promedio de los últimos {int(r.hist_n or 4)} años ({fx(r.pe_hist,1)}x): {fx(abs(dv)*100,0)}% más barata que su propia norma.")
+        elif dv > 0.25:
+            con.append(f"Cotiza a P/E {fx(r.pe,1)}x contra su promedio de los últimos {int(r.hist_n or 4)} años ({fx(r.pe_hist,1)}x): {fx(dv*100,0)}% más cara que su propia norma.")
+        elif r.v_peer is not None and pd.notna(r.v_peer) and r.v_peer < -0.15:
+            con.append(f"Su P/E es bajo frente a {r.peer_lbl}, pero similar a su propio promedio histórico ({fx(r.pe_hist,1)}x): el descuento puede ser estructural, no una oportunidad.")
+    if pd.notna(r.div) and pd.notna(r.div5) and r.div > 0 and r.div5 > 0 and r.div > r.div5 * 1.2:
+        pro.append(f"Su dividendo rinde {fx(r.div,2)}%, por encima de su promedio de 5 años ({fx(r.div5,2)}%): el precio está bajo frente a su historia.")
     if r.cyc:
         con.append("Posible pico de ciclo: en industrias cíclicas un P/E bajo suele aparecer cerca del techo de ganancias. La valuación del puntaje está limitada.")
     if r.one_off:
@@ -400,6 +413,47 @@ def fetch_info(sym):
     return sym, {}
 
 
+def fetch_hist(sym, series):
+    """Valuación histórica propia: P/E y precio/ventas al cierre de cada uno de los últimos ~4 ejercicios."""
+    import yfinance as yf
+    ser = series.get(sym)
+    if ser is None or not len(ser):
+        return sym, {}
+    for i in range(3):
+        try:
+            st = yf.Ticker(sym).income_stmt
+            break
+        except Exception:
+            time.sleep(2 + 3 * i)
+    else:
+        return sym, {}
+    if st is None or st.empty:
+        return sym, {}
+    row = lambda *names: next((st.loc[n] for n in names if n in st.index), None)
+    eps, rev, sh = row("Diluted EPS", "Basic EPS"), row("Total Revenue", "Operating Revenue"), row("Diluted Average Shares", "Basic Average Shares")
+    idx = ser.index.tz_localize(None) if getattr(ser.index, "tz", None) is not None else ser.index
+    s2 = pd.Series(ser.values, index=idx)
+    pes, pss = [], []
+    for d in st.columns:
+        d = pd.Timestamp(d)
+        px = s2[:d]
+        if len(px) == 0 or (d - px.index[-1]).days > 10:
+            continue
+        price = float(px.iloc[-1])
+        e = num(eps.get(d)) if eps is not None else None
+        if e and e > 0 and 0 < price / e < 200:
+            pes.append(price / e)
+        rv, n = (num(rev.get(d)) if rev is not None else None), (num(sh.get(d)) if sh is not None else None)
+        if rv and n and rv > 0:
+            pss.append(price * n / rv)
+    out = {}
+    if len(pes) >= 2:
+        out["pe_hist"] = float(np.mean(pes)); out["pe_hist_n"] = len(pes)
+    if len(pss) >= 2:
+        out["ps_hist"] = float(np.mean(pss)); out["ps_hist_n"] = len(pss)
+    return sym, out
+
+
 def num(x):
     try:
         x = float(x)
@@ -408,7 +462,8 @@ def num(x):
         return None
 
 
-def build(universe, prices, infos):
+def build(universe, prices, infos, hist=None):
+    hist = hist or {}
     rows = []
     for sym, name, gics, region in universe:
         if sym not in prices:
@@ -431,7 +486,10 @@ def build(universe, prices, infos):
                          fwd_eps_g=(fwd_eps / eps - 1) if eps and fwd_eps and eps > 0 else None,
                          roe=num(inf.get("returnOnEquity")), margin=num(inf.get("profitMargins")),
                          op_margin=num(inf.get("operatingMargins")), de=num(inf.get("debtToEquity")),
-                         div=num(inf.get("dividendYield")),
+                         div=num(inf.get("dividendYield")), div5=num(inf.get("fiveYearAvgDividendYield")),
+                         ps=num(inf.get("priceToSalesTrailing12Months")),
+                         pe_hist=hist.get(sym, {}).get("pe_hist"), ps_hist=hist.get(sym, {}).get("ps_hist"),
+                         hist_n=hist.get(sym, {}).get("pe_hist_n") or hist.get(sym, {}).get("ps_hist_n"),
                          target=target, upside=(target / t["p"] - 1) if target else None,
                          rec=num(inf.get("recommendationMean")),
                          n_an=num(inf.get("numberOfAnalystOpinions")) or 0,
@@ -441,12 +499,28 @@ def build(universe, prices, infos):
                          closes=c[-450:]))
     df = pd.DataFrame(rows)
     num_cols = ["pe", "fpe", "peg", "pb", "rev_g", "eps_g", "eps", "fwd_eps", "fwd_eps_g", "roe", "margin",
-                "op_margin", "de", "div", "target", "upside", "rec", "mcap", "vol_ratio", "r1m", "r6m", "fcf", "earn_days"]
+                "op_margin", "de", "div", "target", "upside", "rec", "mcap", "vol_ratio", "r1m", "r6m", "fcf", "earn_days",
+                "div5", "ps", "pe_hist", "ps_hist", "hist_n"]
     for col in num_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["fcf_y"] = df.fcf / df.mcap
     # se calcula ANTES del puntaje fundamental porque lo usa la regla cíclica
-    df["sec_fpe"] = df.fpe.where(df.fpe > 0).groupby(df.sector).transform("median")
+    # P/E de pares: mediana de su industria si tiene al menos 5 empresas comparables; si no, de su sector
+    fpe_pos = df.fpe.where(df.fpe > 0)
+    ind_n = fpe_pos.groupby(df.industry).transform("count")
+    ind_med = fpe_pos.groupby(df.industry).transform("median")
+    sec_med = fpe_pos.groupby(df.sector).transform("median")
+    use_ind = (ind_n >= 5) & (df.industry != "")
+    df["sec_fpe"] = ind_med.where(use_ind, sec_med)
+    df["peer_lbl"] = np.where(use_ind, "su industria", "su sector")
+    df["peer_grp"] = np.where(use_ind, df.industry, df.sector)
+    # ---- tres miradas de valuación (negativo = más barata)
+    df["v_peer"] = (df.fpe / df.sec_fpe - 1).clip(-0.9, 1.5)
+    pe_now = df.pe.where(df.pe > 0)
+    vh = pd.concat([pe_now / df.pe_hist - 1, df.ps / df.ps_hist - 1,
+                    (df.div5 / df["div"] - 1).where((df["div"] > 0) & (df.div5 > 0))], axis=1).clip(-0.9, 1.5)
+    df["v_hist"] = vh.mean(axis=1, skipna=True).where(vh.notna().any(axis=1))
+    df["v_an"] = (-df.upside).where(df.n_an >= 3)
     cyc_ind = df.industry.isin(CYCLICAL)
     peak_eps = (df.eps_g > 0.5) | ((df.fwd_eps < df.eps) & (df.eps > 0))
     df["cyc"] = (cyc_ind & peak_eps & (df.fpe > 0) & (df.fpe < 0.6 * df.sec_fpe)).fillna(False).astype(bool)
@@ -454,6 +528,12 @@ def build(universe, prices, infos):
     df["at"] = score_tech(df)
     df["af"] = score_fund(df)
     df["score"] = 0.5 * df["at"] + 0.5 * df["af"]
+    cheap = pd.concat([df.v_peer < -0.15, df.v_hist < -0.10, df.v_an < -0.20], axis=1)
+    dear = pd.concat([df.v_peer > 0.15, df.v_hist > 0.10, df.v_an > 0], axis=1)
+    avail = pd.concat([df.v_peer.notna(), df.v_hist.notna(), df.v_an.notna()], axis=1).sum(axis=1)
+    df["val_cheap"], df["val_dear"], df["val_n"] = cheap.sum(axis=1), dear.sum(axis=1), avail
+    df["val_verdict"] = np.select([df.cyc, df.val_cheap >= 2, df.val_dear >= 2],
+                                  ["Pico de ciclo", "Barata", "Cara"], "Neutral")
     df["mom_pct"] = pct_rank((1 + df.r6m) / (1 + df.r1m) - 1).fillna(0)
     df["setup"] = [setup(r) for r in df.itertuples()]
     # Elegibles como oportunidad: tendencia sana, o sobreventa con buenos fundamentos
@@ -648,7 +728,11 @@ def fair_value(r):
     if base and pd.notna(r.sec_fpe) and r.sec_fpe > 0:
         v = base * r.sec_fpe
         if 0.3 < v / r.p < 3:
-            vals.append(v); src.append("P/E del sector" + (" con ganancia de ciclo normalizada" if r.cyc else ""))
+            vals.append(v); src.append(f"P/E de {r.peer_lbl}" + (" con ganancia de ciclo normalizada" if r.cyc else ""))
+    if pd.notna(r.pe_hist) and base and not r.cyc:
+        v = base * r.pe_hist
+        if 0.3 < v / r.p < 3:
+            vals.append(v); src.append("P/E histórico propio")
     if r.n_an >= 3 and pd.notna(r.target) and 0.3 < r.target / r.p < 3:
         vals.append(r.target); src.append("analistas")
     if not vals:
@@ -699,10 +783,18 @@ def vm_status(pts):
     return z, zp, st
 
 
+VM_DOUBT = -0.35   # descuento mayor a esto (ya calibrado) = valuación dudosa
+
+
 def add_value_momentum(df, series):
-    out = {k: [] for k in ["vm", "fair", "fair_src", "fair_up", "vm_z", "vm_zp", "vm_st"]}
-    for r in df.itertuples():
-        fair, src = fair_value(r)
+    out = {k: [] for k in ["vm", "fair", "fair_raw", "fair_src", "fair_up", "vm_z", "vm_zp", "vm_st", "vm_doubt"]}
+    raw = [fair_value(r) for r in df.itertuples()]
+    # calibración: el valor justo se escala para que la acción típica del S&P 500 quede justo en su valor justo
+    ratios = pd.Series([f / r.p for (f, _), r in zip(raw, df.itertuples()) if f and r.region == "EE.UU."])
+    k = float(ratios.median()) if len(ratios) >= 20 else 1.0
+    df.attrs["vm_k"] = k
+    for (fair_r, src), r in zip(raw, df.itertuples()):
+        fair = fair_r / k if fair_r else None
         ser = series.get(r.t) if series else None
         pts = None
         if fair and ser is not None and len(ser) > 260:
@@ -712,11 +804,17 @@ def add_value_momentum(df, series):
             w = w.tail(VM_WEEKS + 1)
             if len(w) >= 8:
                 pts = [[round(float(c / fair - 1), 4), round(float(mm), 1)] for c, mm in zip(w.c, w.m)]
+        xr = (r.p / fair - 1) if fair else None
+        # dudosa: descuento extremo, o el modelo dice "barata" mientras las tres miradas dicen "cara"/pico de ciclo
+        doubt = bool(xr is not None and (xr < VM_DOUBT or (xr < -0.15 and r.val_verdict in ("Cara", "Pico de ciclo"))))
         if pts:
             z, zp, st = vm_status(pts)
+            if doubt:
+                st = "Descuento extremo: revisar la valuación" if xr < VM_DOUBT else "Valuación contradictoria: revisar"
         else:
             z = zp = st = None
-        out["vm"].append(pts); out["fair"].append(fair); out["fair_src"].append(src)
+        out["vm"].append(pts); out["fair"].append(fair); out["fair_raw"].append(fair_r); out["fair_src"].append(src)
+        out["vm_doubt"].append(doubt)
         out["fair_up"].append((fair / r.p - 1) if fair else None)
         out["vm_z"].append(z); out["vm_zp"].append(zp); out["vm_st"].append(st)
     for k, v in out.items():
@@ -730,7 +828,8 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
             "sma200", "hi52", "lo52", "dd", "volat", "vol_ratio", "macd_h", "macd_cross", "pe", "fpe", "peg", "pb",
             "rev_g", "eps_g", "eps", "fwd_eps", "fwd_eps_g", "roe", "margin", "op_margin", "de", "div", "target",
             "upside", "rec", "n_an", "at", "af", "score", "f_val", "f_gro", "f_qua", "f_sol", "f_ana", "sec_fpe",
-            "setup", "elig", "rank", "dd3", "hi3_age", "rebound", "pb_vol", "recovery", "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w", "industry", "fcf", "fcf_y", "earn_days", "cyc", "one_off"]
+            "setup", "elig", "rank", "peer_lbl", "v_peer", "v_hist", "v_an", "val_verdict", "val_cheap", "val_n",
+            "div5", "ps", "pe_hist", "ps_hist", "hist_n", "dd3", "hi3_age", "rebound", "pb_vol", "recovery", "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w", "industry", "fcf", "fcf_y", "earn_days", "cyc", "one_off"]
     for r in df.itertuples():
         d = {k: r2(getattr(r, k)) for k in keep}
         d["rank"] = int(r.rank) if r.rank is not None and r.rank == r.rank else None
@@ -738,7 +837,7 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
         d["earn_days"] = int(r.earn_days) if pd.notna(r.earn_days) else None
         d["pro"], d["con"], d["grow"] = reasons(r)
         if getattr(r, "vm", None):
-            d.update(vm=r.vm, fair=r2(r.fair, 2), fair_src=r.fair_src, fair_up=r2(r.fair_up), vm_z=r.vm_z,
+            d.update(vm=r.vm, fair=r2(r.fair, 2), fair_raw=r2(r.fair_raw, 2), vm_doubt=bool(r.vm_doubt), fair_src=r.fair_src, fair_up=r2(r.fair_up), vm_z=r.vm_z,
                      vm_zp=r.vm_zp, vm_st=r.vm_st)
         if r.rank is not None:
             d["closes"] = [round(float(x), 2) for x in r.closes]
@@ -753,7 +852,7 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
             "sectors": sorted(heat, key=lambda h: -h["score"]), "spy": spy, "etfs": etfs or [],
             "rrg_dates": next((e["rrg_dates"] for e in (etfs or []) if e.get("rrg_dates")), []),
             "vm_dates": vm_dates or [],
-            "macro": macro or {},
+            "macro": macro or {}, "vm_k": r2(df.attrs.get("vm_k", 1.0), 3),
             "rows": out_rows}
 
 
@@ -800,6 +899,16 @@ def main():
     if macro.get("^TNX"):
         TNX_YIELD = macro["^TNX"]["v"] / 100
     df = build(uni, prices, infos)
+    # ---- segunda etapa: valuación histórica propia solo para las candidatas (no duplica la carga sobre Yahoo)
+    cand = set(df.sort_values("score", ascending=False).head(150).t)
+    cand |= set(df[(df.v_peer < -0.10) | (df.v_an < -0.15)].sort_values("af", ascending=False).head(150).t)
+    hist = {}
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for sym, h in ex.map(lambda t: fetch_hist(t, series), sorted(cand)):
+            if h:
+                hist[sym] = h
+    print("Valuación histórica:", len(hist), "de", len(cand), "candidatas")
+    df = build(uni, prices, infos, hist)
     us = df[df.region == "EE.UU."]
     if len(us):
         macro["breadth"] = {"name": "Amplitud S&P 500", "v": round(float((us.p > us.sma200).mean()) * 100, 1),
