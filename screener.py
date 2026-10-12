@@ -91,7 +91,8 @@ def technical(c, v):
     vv = v[np.isfinite(v)] if v is not None else np.array([])
     vol_ratio = float(vv[-20:].mean() / vv[-60:].mean()) if len(vv) >= 60 and vv[-60:].mean() > 0 else None
     dr = np.diff(np.log(c[-64:]))
-    return {
+    tr = trend_state(c, p, s200, s200 > s200_prev)
+    return {**tr,
         "p": p, "sma20": s20, "sma50": s50, "sma200": s200,
         "sma200_up": s200 > s200_prev,
         "rsi": rsi(c[-300:]),
@@ -106,6 +107,58 @@ def technical(c, v):
     }
 
 
+CONFIRM_DAYS = 10      # ruedas consecutivas del mismo lado de la media de 200 para confirmar
+DEF_BAND = 0.02        # +/- 2% alrededor de la media de 200 = zona de definición
+TREND_N = {"Alcista confirmada": 2, "Alcista en formación": 1, "Zona de definición": 0,
+           "Bajista en formación": -1, "Bajista confirmada": -2}
+
+
+def trend_state(c, p, s200, s200_up):
+    """Tendencia de largo plazo con confirmación por tiempo (diario) y por cierre semanal."""
+    sma = pd.Series(c).rolling(200).mean().values
+    side = np.sign(c[-60:] - sma[-60:])
+    side = side[np.isfinite(side)]
+    cur = 1 if p > s200 else -1
+    run = 0
+    for x in side[::-1]:
+        if x == cur:
+            run += 1
+        else:
+            break
+    wk = c[::-1][::5][::-1]                       # cierres semanales aproximados (cada 5 ruedas)
+    sma40w = float(wk[-40:].mean()) if len(wk) >= 40 else None
+    sma200w = float(wk[-200:].mean()) if len(wk) >= 200 else None
+    w_above = (wk[-1] > sma40w) if sma40w else (cur > 0)
+    dist = p / s200 - 1
+    if abs(dist) < DEF_BAND and run < CONFIRM_DAYS:
+        st = "Zona de definición"
+    elif cur > 0:
+        st = "Alcista confirmada" if (run >= CONFIRM_DAYS or dist > 0.05) and w_above else "Alcista en formación"
+    else:
+        st = "Bajista confirmada" if (run >= CONFIRM_DAYS or dist < -0.05) and not w_above else "Bajista en formación"
+    return {"trend": st, "trend_n": TREND_N[st], "run200": int(run * cur), "dist200": float(dist),
+            "sma40w": sma40w, "sma200w": sma200w, "w_above": bool(w_above),
+            "d200w": (float(p / sma200w - 1) if sma200w else None)}
+
+
+def trend_text(r, short=False):
+    """Frase de tendencia para A favor / A vigilar. Devuelve (es_favor, texto)."""
+    n, run, d = r.trend_n, abs(int(r.run200)), r.dist200
+    sem = "el cierre semanal confirma (arriba de la media de 40 semanas)" if r.w_above else "el cierre semanal todavía no confirma (debajo de la media de 40 semanas)"
+    if n == 2:
+        extra = " y la de 50 está por encima de la de 200" if r.sma50 > r.sma200 else ""
+        return True, f"Tendencia alcista confirmada: {run}+ ruedas arriba de su media de 200 ({f_pct(d,1)}){extra}; {sem}."
+    if n == 1:
+        return True, f"Tendencia alcista en formación: hace {run} ruedas que cotiza arriba de su media de 200 ({f_pct(d,1)}); {sem}."
+    if n == 0:
+        lado = "arriba" if d >= 0 else "debajo"
+        return None, f"Zona de definición: cotiza {fx(abs(d)*100,1)}% {lado} de su media de 200, sin confirmar dirección ({run} ruedas de ese lado)."
+    if n == -1:
+        sem2 = "el cierre semanal sigue arriba de la media de 40 semanas" if r.w_above else "el cierre semanal también está debajo de la media de 40 semanas"
+        return False, f"Tendencia bajista en formación: hace {run} ruedas que cotiza debajo de su media de 200 ({f_pct(d,1)}); {sem2}."
+    return False, f"Tendencia bajista confirmada: {run}+ ruedas debajo de su media de 200 ({f_pct(d,1)}) y cierre semanal debajo de la media de 40 semanas."
+
+
 def pct_rank(s, higher_better=True):
     """Percentil 0..1 dentro de la serie (NaN queda NaN)."""
     r = s.rank(pct=True, ascending=higher_better)
@@ -115,7 +168,7 @@ def pct_rank(s, higher_better=True):
 def score_tech(df):
     t = pd.Series(0.0, index=df.index)
     # Tendencia (30)
-    t += np.where(df.p > df.sma200, 10, 0)
+    t += df.trend_n.map({2: 10, 1: 6, 0: 4, -1: 2, -2: 0}).fillna(4)
     t += np.where(df.sma50 > df.sma200, 10, 0)
     t += np.where(df.sma200_up, 10, 0)
     # Momentum relativo 6m sin el ultimo mes (25)
@@ -127,7 +180,7 @@ def score_tech(df):
                    [15, 10, 11, 7, 3], 5)
     t += np.where(df.macd_h > 0, 5, 0) + np.where(df.macd_up, 2, 0) + np.where(df.macd_cross, 3, 0)
     # Posicion respecto del maximo (20)
-    up = df.p > df.sma200
+    up = df.trend_n >= 1
     dd = df.dd
     t += np.select([up & (dd <= -0.05) & (dd >= -0.20), up & (dd > -0.05), up & (dd < -0.20)],
                    [20, 15, 10], 4)
@@ -198,7 +251,7 @@ def f_pct(x, d=0):
 
 
 def setup(r):
-    up = r.p > r.sma200
+    up = r.trend_n >= 1
     if up and r.dd > -0.04 and r.vol_ratio and r.vol_ratio > 1.15:
         return "Ruptura de máximos"
     if up and -0.20 <= r.dd <= -0.05 and r.rsi < 55:
@@ -215,13 +268,11 @@ def setup(r):
 def reasons(r):
     pro, con, grow = [], [], []
     # Tecnico
-    if r.p > r.sma200 and r.sma50 > r.sma200:
-        pro.append("Tendencia alcista de largo plazo: cotiza arriba de su media de 200 ruedas y la de 50 está por encima de la de 200.")
-    elif r.p > r.sma200:
-        pro.append("Cotiza por encima de su media de 200 ruedas.")
-    else:
-        con.append(f"Está {fx(abs(r.p/r.sma200-1)*100,0)}% por debajo de su media de 200 ruedas: la tendencia de largo plazo todavía es bajista.")
-    if r.p > r.sma200 and -0.20 <= r.dd <= -0.05:
+    fav, txt = trend_text(r)
+    (pro if fav else con).append(txt)
+    if pd.notna(r.d200w) and -0.03 <= r.d200w <= 0.05:
+        pro.append(f"Está cerca de su media de 200 semanas ({f_pct(r.d200w,1)}), un soporte de ciclo largo (unos 4 años).")
+    if r.trend_n >= 1 and -0.20 <= r.dd <= -0.05:
         pro.append(f"Corrigió {f_pct(r.dd)} desde su máximo de 52 semanas dentro de una tendencia alcista: posible punto de entrada.")
     if r.dd > -0.03 and r.vol_ratio and r.vol_ratio < 0.9:
         con.append("Está cerca de máximos pero con volumen bajo: la suba muestra poca convicción frente a la resistencia.")
@@ -355,7 +406,7 @@ def build(universe, prices, infos):
     df["mom_pct"] = pct_rank((1 + df.r6m) / (1 + df.r1m) - 1).fillna(0)
     df["setup"] = [setup(r) for r in df.itertuples()]
     # Elegibles como oportunidad: tendencia sana, o sobreventa con buenos fundamentos
-    elig = (df.p > df.sma200) | ((df.rsi < 35) & (df.af >= 60))
+    elig = (df.trend_n >= 1) | ((df.rsi < 35) & (df.af >= 60))
     df["elig"] = elig
     df = df.sort_values("score", ascending=False).reset_index(drop=True)
     top = df[df.elig].head(TOP_N)
@@ -470,12 +521,8 @@ def build_etfs(prices, series=None):
         if pts:
             fase, head, _, _ = heading(pts)
         pro, con = [], []
-        if r.p > r.sma200 and r.sma50 > r.sma200:
-            pro.append("Tendencia alcista de largo plazo: arriba de la media de 200 ruedas y con la de 50 por encima de la de 200.")
-        elif r.p > r.sma200:
-            pro.append("Cotiza arriba de su media de 200 ruedas.")
-        else:
-            con.append(f"Está {fx(abs(r.p/r.sma200-1)*100,1)}% debajo de su media de 200 ruedas: tendencia de largo plazo bajista.")
+        fav, txt = trend_text(r)
+        (pro if fav else con).append(txt)
         if rs3 is not None:
             (pro if rs3 >= 0 else con).append(f"En 3 meses rindió {f_pct(rs3,1)} contra el S&P 500.")
         if rs1 is not None:
@@ -490,10 +537,11 @@ def build_etfs(prices, series=None):
             pro.append("El MACD cruzó al alza en los últimos días.")
         elif r.macd_h < 0:
             con.append("El MACD está debajo de su señal: impulso de corto plazo débil.")
-        if -0.12 <= r.dd <= -0.04 and r.p > r.sma200:
+        if -0.12 <= r.dd <= -0.04 and r.trend_n >= 1:
             pro.append(f"Corrigió {f_pct(r.dd,1)} desde su máximo dentro de una tendencia alcista.")
         d = {k: r2(getattr(r, k)) for k in ["sector", "etf", "p", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200",
-                                              "hi52", "lo52", "dd", "volat", "macd_h", "macd_cross", "at", "at_own", "rs_score"]}
+                                              "hi52", "lo52", "dd", "volat", "macd_h", "macd_cross", "at", "at_own", "rs_score",
+                                              "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w"]}
         d.update(rrg=pts, rrg_dates=dates, head=head)
         d.update(fase=fase, rs1=r2(rs1), rs3=r2(rs3), rs6=r2(rs6), pro=pro, con=con,
                  closes=[round(float(x), 2) for x in r.closes])
@@ -630,7 +678,7 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
             "sma200", "hi52", "lo52", "dd", "volat", "vol_ratio", "macd_h", "macd_cross", "pe", "fpe", "peg", "pb",
             "rev_g", "eps_g", "eps", "fwd_eps", "fwd_eps_g", "roe", "margin", "op_margin", "de", "div", "target",
             "upside", "rec", "n_an", "at", "af", "score", "f_val", "f_gro", "f_qua", "f_sol", "f_ana", "sec_fpe",
-            "setup", "elig", "rank", "industry", "fcf", "fcf_y", "earn_days", "cyc", "one_off"]
+            "setup", "elig", "rank", "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w", "industry", "fcf", "fcf_y", "earn_days", "cyc", "one_off"]
     for r in df.itertuples():
         d = {k: r2(getattr(r, k)) for k in keep}
         d["rank"] = int(r.rank) if r.rank is not None and r.rank == r.rank else None
@@ -672,7 +720,7 @@ def main():
     dl = syms + [BENCH] + list(SECTOR_ETF.values()) + list(MACRO)
     for i in range(0, len(dl), 100):
         chunk = dl[i:i + 100]
-        data = yf.download(chunk, period="2y", interval="1d", auto_adjust=True, group_by="ticker",
+        data = yf.download(chunk, period="5y", interval="1d", auto_adjust=True, group_by="ticker",
                            threads=True, progress=False)
         for s in chunk:
             try:
