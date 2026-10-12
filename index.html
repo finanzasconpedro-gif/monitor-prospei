@@ -97,6 +97,9 @@ tr[data-t]{cursor:pointer}
 .tc b{font-weight:700}
 .tmtip{position:fixed;z-index:60;background:#14171e;color:#fff;border:1px solid #3a3f4b;border-radius:8px;padding:8px 10px;font-size:12.5px;pointer-events:none;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .tmtip.hide{display:none}
+.setup.s-up{background:var(--upbg);color:var(--up)}
+.setup.s-warn{background:var(--warnbg);color:var(--warn)}
+.setup.s-info{background:color-mix(in srgb,#8a5cf6 14%,transparent);color:#7c4ddb}
 .kpi.us .l::before{content:"EE.UU. · ";opacity:.7}
 .lights{display:inline-flex;gap:3px;align-items:center}
 .lights i{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.08)}
@@ -606,7 +609,7 @@ function renderTop(){
     {k:'rank',h:'#',n:1,f:o=>`<b>${o.rank}</b>`},
     {k:'fav',h:'',f:o=>star(o.t)},
     {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b><div class="note" style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</div>`},
-    {k:'setup',h:'Señal',f:o=>`<span class="setup">${esc(o.setup)}</span>${alertTags(o)?'<div>'+alertTags(o)+'</div>':''}`},
+    {k:'setup',h:'Señal',f:o=>`${setupChip(o.setup)}${alertTags(o)?'<div>'+alertTags(o)+'</div>':''}`},
     {k:'lights',h:'Cal · Val · Téc · Evt',f:o=>lightsHtml(o.lights)},
     {k:'score',h:'Puntaje',f:o=>sbar(o.score)},
     {k:'at',h:'AT',n:1,f:o=>Math.round(o.at)},
@@ -692,7 +695,7 @@ function openEtf(tk){
       ${kv('Var. 1 mes',pct(e.r1m,1))}${kv('Var. 3 meses',pct(e.r3m,1))}${kv('Var. 6 meses',pct(e.r6m,1))}${kv('Var. 12 meses',pct(e.r12m,1))}
       ${e.rs1!=null?kv('vs S&amp;P 1 mes',pct(e.rs1,1)):''}${e.rs3!=null?kv('vs S&amp;P 3 meses',pct(e.rs3,1)):''}${e.rs6!=null?kv('vs S&amp;P 6 meses',pct(e.rs6,1)):''}
     </div>
-    ${comps.length?`<h4 style="margin:16px 0 6px">Mejores empresas del sector</h4><div class="tw"><table style="min-width:0"><tbody>${comps.map(c=>`<tr data-t="${esc(c.t)}"><td><b>${esc(c.t)}</b> <span class="note">${esc(c.name)}</span></td><td style="width:160px">${sbar(c.score)}</td><td class="n"><span class="setup">${esc(c.setup)}</span></td></tr>`).join('')}</tbody></table></div>
+    ${comps.length?`<h4 style="margin:16px 0 6px">Mejores empresas del sector</h4><div class="tw"><table style="min-width:0"><tbody>${comps.map(c=>`<tr data-t="${esc(c.t)}"><td><b>${esc(c.t)}</b> <span class="note">${esc(c.name)}</span></td><td style="width:160px">${sbar(c.score)}</td><td class="n">${setupChip(c.setup)}</td></tr>`).join('')}</tbody></table></div>
     <div style="margin-top:8px"><button class="chip" id="see-sec">Ver todas las empresas de ${esc(e.sector)} →</button></div>`:''}
     ${ced}
     <p class="note" style="margin-top:12px">Fase: <b>Liderando</b> = le gana al S&amp;P 500 a 3 meses y en el último mes · <b>Perdiendo impulso</b> = le gana a 3 meses pero no en el último mes · <b>Mejorando</b> = pierde a 3 meses pero viene ganando en el último mes · <b>Rezagado</b> = pierde en ambos. Herramienta de screening, no es una recomendación.</p>`;
@@ -1014,7 +1017,7 @@ function openDetail(t){
         <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <span style="font-size:22px;font-weight:700" class="num">US$ ${fmt(o.px)}</span>
           <span class="pill ${cls(o.chg)}">${pct(o.chg)}</span>
-          <span class="setup">${esc(o.setup)}</span>
+          ${setupChip(o.setup)}
           ${o.elig?'':'<span class="pill warn">Fuera del filtro de oportunidades</span>'}
         </div>
       </div>
@@ -1061,6 +1064,15 @@ $('#mclose').onclick=closeDetail;$('#modal').onclick=e=>{if(e.target.id==='modal
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
 
 /* ---------- KPIs ---------- */
+const SETUPC={'Corrección con señal de rebote':'up','Ruptura de máximos':'up','Corrección en curso':'warn','Recuperación':'info'};
+const SETUPT={'Corrección con señal de rebote':'Tendencia alcista confirmada, cayó 5-20% desde su último pico y ya muestra rebote (recuperó la media de 20 con MACD o RSI girando al alza)',
+ 'Corrección en curso':'Tendencia alcista confirmada, cayó 5-20% desde su último pico pero todavía sin señal de rebote: vigilar',
+ 'Recuperación':'Cruzó arriba de la media de 200 hace poco, después de estar claramente debajo: falta confirmar',
+ 'Ruptura de máximos':'Tendencia alcista, a menos de 4% del máximo de 52 semanas y con volumen alto',
+ 'Tendencia alcista':'Tendencia alcista con la media de 50 arriba de la de 200',
+ 'Sobrevendida con buenos fundamentos':'Fuera de tendencia alcista, RSI debajo de 35 y fundamentos sólidos',
+ 'Giro técnico':'El MACD cruzó al alza en los últimos días','Valor':'Sin señal técnica particular'};
+const setupChip=t=>`<span class="setup ${SETUPC[t]?'s-'+SETUPC[t]:''}" title="${esc(SETUPT[t]||'')}">${esc(t)}</span>`;
 const LIGHTN={cal:'Calidad',val:'Valuación',tec:'Técnico',evt:'Evento'};
 const lightTxt={cal:['Débil o caja negativa','Aceptable','Sólida'],val:['Cara o pico de ciclo','Neutral','Barata vs sector'],tec:['Débil','Neutral','Sano'],evt:['Balance en ≤7 días','Balance en ≤3 semanas','Sin balance cercano']};
 const lightsHtml=L=>L?`<span class="lights">${['cal','val','tec','evt'].map(k=>`<i class="l${L[k]==null?'null':L[k]}" title="${LIGHTN[k]}: ${L[k]==null?'sin dato':lightTxt[k][L[k]]}"></i>`).join('')}</span>`:'';
