@@ -97,6 +97,15 @@ tr[data-t]{cursor:pointer}
 .tc b{font-weight:700}
 .tmtip{position:fixed;z-index:60;background:#14171e;color:#fff;border:1px solid #3a3f4b;border-radius:8px;padding:8px 10px;font-size:12.5px;pointer-events:none;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .tmtip.hide{display:none}
+.kpi.us .l::before{content:"EE.UU. · ";opacity:.7}
+.lights{display:inline-flex;gap:3px;align-items:center}
+.lights i{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+.l2{background:#0f9d58}.l1{background:#e0a800}.l0{background:#d93025}.lnull{background:var(--line)}
+.alert-tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--warnbg);color:var(--warn);margin:2px 4px 0 0;white-space:nowrap}
+.semaf{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+@media (max-width:600px){.semaf{grid-template-columns:repeat(2,1fr)}}
+.semaf div{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12px;display:flex;align-items:center;gap:8px}
+.semaf i{width:14px;height:14px;border-radius:50%;flex:none}
 .mm-wrap{display:grid;grid-template-columns:1fr 250px;gap:14px;align-items:start}
 @media (max-width:860px){.mm-wrap{grid-template-columns:1fr}}
 .mm-side{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);font-size:13px;min-height:120px}
@@ -174,6 +183,7 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   <div id="alert" class="alert"></div>
 
   <section class="ticker" id="kpis"></section>
+  <section class="ticker" id="kpis-us" style="margin-top:-6px"></section>
 
   <nav class="tabs">
     <button class="tab on" data-t="opo">Oportunidades AT + AF</button>
@@ -567,7 +577,7 @@ async function loadScreener(){
     S.scr=null;
     $('#opo-meta').innerHTML='Todavía no hay análisis generado. En GitHub entrá a <b>Actions → Screener diario PROSPEI → Run workflow</b> y esperá unos 15 minutos.';
   }
-  renderTop();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
+  renderKpisUS();renderTop();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
 }
 function liveOf(t){const us=S.data.us||{};for(const k of [t,t.replace('-','.'),t.replace('-','')]){const x=us[k];if(x&&ok(x.c))return x}return null}
 function cedearOf(r){
@@ -596,7 +606,8 @@ function renderTop(){
     {k:'rank',h:'#',n:1,f:o=>`<b>${o.rank}</b>`},
     {k:'fav',h:'',f:o=>star(o.t)},
     {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b><div class="note" style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</div>`},
-    {k:'setup',h:'Señal',f:o=>`<span class="setup">${esc(o.setup)}</span>`},
+    {k:'setup',h:'Señal',f:o=>`<span class="setup">${esc(o.setup)}</span>${alertTags(o)?'<div>'+alertTags(o)+'</div>':''}`},
+    {k:'lights',h:'Cal · Val · Téc · Evt',f:o=>lightsHtml(o.lights)},
     {k:'score',h:'Puntaje',f:o=>sbar(o.score)},
     {k:'at',h:'AT',n:1,f:o=>Math.round(o.at)},
     {k:'af',h:'AF',n:1,f:o=>Math.round(o.af)},
@@ -626,6 +637,7 @@ function renderUni(){
     {k:'rsi',h:'RSI',n:1,f:o=>fmt(o.rsi,0)},
     {k:'fpe',h:'P/E fwd',n:1,f:o=>o.fpe>0?fmt(o.fpe,1)+'x':'—'},
     {k:'sector',h:'Sector',f:o=>esc(o.sector)},
+    {k:'lights',h:'Semáforo',f:o=>lightsHtml(o.lights)},
     {k:'region',h:'Región',f:o=>esc(o.region)},
     {k:'hasCed',h:'Argentina',f:cedCell}
   ];
@@ -861,7 +873,7 @@ function renderVM(){
   const cols=[
     {k:'fav',h:'',f:o=>star(o.t)},
     {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b> <span class="note">${esc(o.name)}</span>`},
-    {k:'vm_st',h:'Etapa',f:o=>`<span class="fase" style="background:${ZCOL[o.vm_z]}1f;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span> <span class="note">${esc(o.vm_st)}</span>`},
+    {k:'vm_st',h:'Etapa',f:o=>`<span class="fase" style="background:${ZCOL[o.vm_z]}1f;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span> <span class="note">${esc(o.vm_st)}</span>${alertTags(o)?'<div>'+alertTags(o)+'</div>':''}`},
     {k:'vm_zp',h:'Hace 8 sem.',f:o=>`<span class="note">${esc(o.vm_zp||'—')}</span>`},
     {k:'fair_up',h:'Recorrido a valor justo',n:1,f:o=>o.fair_up==null?'—':`<b class="${cls(o.fair_up)}">${pct(o.fair_up,1)}</b>`},
     {k:'mom',h:'Momentum',n:1,f:o=>fmt(o.mom,0)},
@@ -1008,6 +1020,8 @@ function openDetail(t){
       </div>
       <div class="bigscore" style="background:${scoreCol(o.score)}"><b>${Math.round(o.score)}</b><small>Puntaje PROSPEI</small></div>
     </div>
+    ${o.lights?`<div class="semaf">${['cal','val','tec','evt'].map(k=>{const v=o.lights[k];return `<div><i class="l${v==null?'null':v}"></i><span><b>${LIGHTN[k]}</b><br><span class="note">${v==null?'sin dato':lightTxt[k][v]}</span></span></div>`}).join('')}</div>`:''}
+    ${alertTags(o)?`<div style="margin-bottom:6px">${alertTags(o)}</div>`:''}
     <div class="pillars">
       ${pill('Técnico (AT)',o.at)}${pill('Fundamental (AF)',o.af)}
       ${pill('Valuación',o.f_val*100)}${pill('Crecimiento',o.f_gro*100)}${pill('Calidad',o.f_qua*100)}${pill('Solidez financiera',o.f_sol*100)}${pill('Visión analistas',o.f_ana*100)}
@@ -1032,7 +1046,9 @@ function openDetail(t){
         ${kv('PEG',o.peg>0?fmt(o.peg,2):'—')}${kv('Precio / valor libros',o.pb>0?fmt(o.pb,1)+'x':'—')}
         ${kv('Crec. ventas (a/a)',pct(o.rev_g,1))}${kv('Crec. ganancias (a/a)',pct(o.eps_g,1))}
         ${kv('ROE',o.roe==null?'—':fmt(o.roe*100,1)+'%')}${kv('Margen neto',o.margin==null?'—':fmt(o.margin*100,1)+'%')}
-        ${kv('Deuda / patrimonio',o.de==null?'—':fmt(o.de/100,2)+'x')}${kv('Dividendo',o.div==null?'—':fmt(o.div,2)+'%')}
+        ${kv('Deuda / patrimonio',o.sector==='Financiero'?'n/a (banco)':o.de==null?'—':fmt(o.de/100,2)+'x')}${kv('Dividendo',o.div==null?'—':fmt(o.div,2)+'%')}
+        ${kv('Flujo de caja libre',o.sector==='Financiero'?'n/a (banco)':o.fcf==null?'—':'US$ '+vol(o.fcf))}${kv('Rendimiento FCF',o.sector==='Financiero'||o.fcf_y==null?'—':fmt(o.fcf_y*100,1)+'%')}
+        ${kv('Próximo balance',o.earn_days==null||o.earn_days<0?'—':o.earn_days===0?'Hoy':'en '+o.earn_days+' días')}${kv('Industria',esc(o.industry||'—'))}
         ${kv('Precio objetivo',o.target&&o.n_an>=3?'US$ '+fmt(o.target)+' ('+pct(o.upside,1)+')':'—')}${kv('Consenso ('+(o.n_an||0)+' analistas)',recTxt)}
       </div></div>
     </div>
@@ -1045,6 +1061,26 @@ $('#mclose').onclick=closeDetail;$('#modal').onclick=e=>{if(e.target.id==='modal
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
 
 /* ---------- KPIs ---------- */
+const LIGHTN={cal:'Calidad',val:'Valuación',tec:'Técnico',evt:'Evento'};
+const lightTxt={cal:['Débil o caja negativa','Aceptable','Sólida'],val:['Cara o pico de ciclo','Neutral','Barata vs sector'],tec:['Débil','Neutral','Sano'],evt:['Balance en ≤7 días','Balance en ≤3 semanas','Sin balance cercano']};
+const lightsHtml=L=>L?`<span class="lights">${['cal','val','tec','evt'].map(k=>`<i class="l${L[k]==null?'null':L[k]}" title="${LIGHTN[k]}: ${L[k]==null?'sin dato':lightTxt[k][L[k]]}"></i>`).join('')}</span>`:'';
+function alertTags(o){const t=[];
+  if(o.earn_days!=null&&o.earn_days>=0&&o.earn_days<=14)t.push(`⚠️ Balance en ${o.earn_days===0?'hoy':o.earn_days===1?'1 día':o.earn_days+' días'}`);
+  if(o.cyc)t.push('⚠️ Pico de ciclo');
+  if(o.one_off)t.push('⚠️ Ganancia no recurrente');
+  if(o.fcf!=null&&o.fcf<0&&o.sector!=='Financiero')t.push('⚠️ Caja negativa');
+  return t.map(x=>`<span class="alert-tag">${x}</span>`).join('')}
+function renderKpisUS(){
+  const el=$('#kpis-us');const m=S.scr&&S.scr.macro;if(!m||!Object.keys(m).length){el.innerHTML='';return}
+  const k=[];const tn=m['^TNX'],vx=m['^VIX'],dx=m['DX-Y.NYB'],oil=m['CL=F'],br=m.breadth;
+  if(tn)k.push(['Bono 10 años',fmt(tn.v,2)+'%',`${tn.d1_bp>0?'+':''}${tn.d1_bp??'—'} pb día · ${tn.m1_bp>0?'+':''}${tn.m1_bp??'—'} pb mes`,null]);
+  if(vx)k.push(['VIX',fmt(vx.v,1),vx.v<15?'Calma':vx.v<20?'Normal':vx.v<30?'Tensión':'Pánico',vx.v<20?'up':'down']);
+  if(dx)k.push(['Dólar global',fmt(dx.v,1),`${pct(dx.d1)} día · ${pct(dx.m1,1)} mes`,null]);
+  if(oil)k.push(['Petróleo WTI','US$ '+fmt(oil.v,1),`${pct(oil.d1)} día · ${pct(oil.m1,1)} mes`,null]);
+  if(br)k.push(['Amplitud',fmt(br.v,0)+'%',`arriba de media 200 · ${fmt(br.v50,0)}% sobre media 50`,br.v>=60?'up':br.v<40?'down':null]);
+  const d=new Date(S.scr.generated);
+  el.innerHTML=k.map(x=>`<div class="kpi us" title="Dato al cierre del ${d.toLocaleDateString('es-AR')}"><div class="l">${x[0]}</div><div class="v num ${x[3]||''}" style="text-align:left">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('');
+}
 function renderKpis(){
   const d=S.data,k=[];
   const of=d.dolares&&d.dolares.find(x=>x.casa==='oficial'),bl=d.dolares&&d.dolares.find(x=>x.casa==='blue');
