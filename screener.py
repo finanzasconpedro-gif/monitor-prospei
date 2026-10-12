@@ -92,7 +92,19 @@ def technical(c, v):
     vol_ratio = float(vv[-20:].mean() / vv[-60:].mean()) if len(vv) >= 60 and vv[-60:].mean() > 0 else None
     dr = np.diff(np.log(c[-64:]))
     tr = trend_state(c, p, s200, s200 > s200_prev)
-    return {**tr,
+    # corrección: pico reciente (3 meses) y señales de rebote
+    w3 = c[-63:]
+    hi3_i = int(np.argmax(w3))
+    hi3 = float(w3[hi3_i])
+    hi52_age = int(len(w) - 1 - int(np.argmax(w)))
+    rsi_prev = rsi(c[-305:-5])
+    rsi_now = rsi(c[-300:])
+    rebound = bool(p > s20 and (hist[-1] > hist[-2] or rsi_now > rsi_prev + 3))
+    pb_days = max(1, len(w3) - 1 - hi3_i)
+    pb_vol = (float(vv[-min(pb_days, 20):].mean() / vv[-60:].mean())
+              if len(vv) >= 60 and vv[-60:].mean() > 0 and pb_days >= 3 else None)
+    return {**tr, "dd3": p / hi3 - 1, "hi3_age": pb_days, "hi52_age": hi52_age, "rebound": rebound,
+            "pb_vol": pb_vol, "near50": bool(abs(p / s50 - 1) <= 0.02), "near200": bool(-0.01 <= p / s200 - 1 <= 0.03),
         "p": p, "sma20": s20, "sma50": s50, "sma200": s200,
         "sma200_up": s200 > s200_prev,
         "rsi": rsi(c[-300:]),
@@ -136,7 +148,11 @@ def trend_state(c, p, s200, s200_up):
         st = "Alcista confirmada" if (run >= CONFIRM_DAYS or dist > 0.05) and w_above else "Alcista en formación"
     else:
         st = "Bajista confirmada" if (run >= CONFIRM_DAYS or dist < -0.05) and not w_above else "Bajista en formación"
-    return {"trend": st, "trend_n": TREND_N[st], "run200": int(run * cur), "dist200": float(dist),
+    # recuperación: cruzó arriba hace poco después de haber estado claramente debajo (>5%) en los últimos 6 meses
+    look = min(126, len(c))
+    was_below = bool(np.nanmin(c[-look:] / sma[-look:] - 1) < -0.05) if np.isfinite(sma[-look:]).any() else False
+    recovery = bool(cur > 0 and run < 40 and was_below)
+    return {"recovery": recovery, "trend": st, "trend_n": TREND_N[st], "run200": int(run * cur), "dist200": float(dist),
             "sma40w": sma40w, "sma200w": sma200w, "w_above": bool(w_above),
             "d200w": (float(p / sma200w - 1) if sma200w else None)}
 
@@ -250,12 +266,19 @@ def f_pct(x, d=0):
     return f"{x*100:+.{d}f}%".replace(".", ",")
 
 
+def is_correction(r):
+    """Corrección dentro de una suba confirmada: cayó 5-20% desde su pico de los últimos 3 meses."""
+    return bool(r.trend_n == 2 and r.sma50 > r.sma200 and -0.20 <= r.dd3 <= -0.05 and r.dd >= -0.25 and r.rsi < 55)
+
+
 def setup(r):
     up = r.trend_n >= 1
     if up and r.dd > -0.04 and r.vol_ratio and r.vol_ratio > 1.15:
         return "Ruptura de máximos"
-    if up and -0.20 <= r.dd <= -0.05 and r.rsi < 55:
-        return "Corrección en tendencia alcista"
+    if r.recovery:
+        return "Recuperación"
+    if is_correction(r):
+        return "Corrección con señal de rebote" if r.rebound else "Corrección en curso"
     if up and r.sma50 > r.sma200:
         return "Tendencia alcista"
     if not up and r.rsi < 35 and r.af >= 60:
@@ -265,6 +288,33 @@ def setup(r):
     return "Valor"
 
 
+def correction_texts(r):
+    pro, con = [], []
+    if r.recovery:
+        con.append(f"Recuperación: cruzó arriba de su media de 200 hace {abs(int(r.run200))} ruedas después de cotizar claramente por debajo. "
+                   "No es una corrección dentro de una suba: falta confirmar que sostenga la media.")
+    elif is_correction(r):
+        cuando = f"hace {int(r.hi3_age)} ruedas"
+        if r.rebound:
+            pro.append(f"Corrección con señal de rebote: cayó {fx(abs(r.dd3)*100,1)}% desde su último pico ({cuando}) y ya recuperó su media "
+                       "de 20 ruedas con el MACD o el RSI girando al alza: posible punto de entrada.")
+        else:
+            con.append(f"Corrección en curso: cayó {fx(abs(r.dd3)*100,1)}% desde su último pico ({cuando}) y todavía no muestra señal de rebote "
+                       "(debajo de la media de 20 o sin giro de MACD/RSI). Conviene esperar la confirmación.")
+        if r.pb_vol is not None:
+            if r.pb_vol < 0.9:
+                pro.append(f"La caída se dio con volumen bajo ({fx(r.pb_vol,2)} veces el promedio): parece toma de ganancias, no venta fuerte.")
+            elif r.pb_vol > 1.25:
+                con.append(f"La caída se dio con volumen alto ({fx(r.pb_vol,2)} veces el promedio): hay presión vendedora real.")
+        if r.near200:
+            pro.append("Está apoyada en su media de 200 ruedas, el soporte clave de la tendencia.")
+        elif r.near50:
+            pro.append("Está apoyada en su media de 50 ruedas, un soporte habitual en tendencias alcistas.")
+    if r.trend_n >= 1 and -0.20 <= r.dd <= -0.05 and r.hi52_age > 150 and not is_correction(r) and not r.recovery:
+        con.append(f"Su máximo de 52 semanas fue hace {int(r.hi52_age)} ruedas: más que una corrección, viene de un lateral largo.")
+    return pro, con
+
+
 def reasons(r):
     pro, con, grow = [], [], []
     # Tecnico
@@ -272,8 +322,9 @@ def reasons(r):
     (pro if fav else con).append(txt)
     if pd.notna(r.d200w) and -0.03 <= r.d200w <= 0.05:
         pro.append(f"Está cerca de su media de 200 semanas ({f_pct(r.d200w,1)}), un soporte de ciclo largo (unos 4 años).")
-    if r.trend_n >= 1 and -0.20 <= r.dd <= -0.05:
-        pro.append(f"Corrigió {f_pct(r.dd)} desde su máximo de 52 semanas dentro de una tendencia alcista: posible punto de entrada.")
+    pro_c, con_c = correction_texts(r)
+    pro += pro_c
+    con += con_c
     if r.dd > -0.03 and r.vol_ratio and r.vol_ratio < 0.9:
         con.append("Está cerca de máximos pero con volumen bajo: la suba muestra poca convicción frente a la resistencia.")
     elif r.dd > -0.03:
@@ -537,8 +588,9 @@ def build_etfs(prices, series=None):
             pro.append("El MACD cruzó al alza en los últimos días.")
         elif r.macd_h < 0:
             con.append("El MACD está debajo de su señal: impulso de corto plazo débil.")
-        if -0.12 <= r.dd <= -0.04 and r.trend_n >= 1:
-            pro.append(f"Corrigió {f_pct(r.dd,1)} desde su máximo dentro de una tendencia alcista.")
+        pc, cc = correction_texts(r)
+        pro += pc
+        con += cc
         d = {k: r2(getattr(r, k)) for k in ["sector", "etf", "p", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200",
                                               "hi52", "lo52", "dd", "volat", "macd_h", "macd_cross", "at", "at_own", "rs_score",
                                               "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w"]}
@@ -678,7 +730,7 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
             "sma200", "hi52", "lo52", "dd", "volat", "vol_ratio", "macd_h", "macd_cross", "pe", "fpe", "peg", "pb",
             "rev_g", "eps_g", "eps", "fwd_eps", "fwd_eps_g", "roe", "margin", "op_margin", "de", "div", "target",
             "upside", "rec", "n_an", "at", "af", "score", "f_val", "f_gro", "f_qua", "f_sol", "f_ana", "sec_fpe",
-            "setup", "elig", "rank", "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w", "industry", "fcf", "fcf_y", "earn_days", "cyc", "one_off"]
+            "setup", "elig", "rank", "dd3", "hi3_age", "rebound", "pb_vol", "recovery", "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w", "industry", "fcf", "fcf_y", "earn_days", "cyc", "one_off"]
     for r in df.itertuples():
         d = {k: r2(getattr(r, k)) for k in keep}
         d["rank"] = int(r.rank) if r.rank is not None and r.rank == r.rank else None
