@@ -688,7 +688,7 @@ function openEtf(tk){
     ${chartSvg(e.closes)}
     ${tk==='SPY'?'':`<div class="lists" style="grid-template-columns:1fr 1fr"><div class="pro"><h4>A favor</h4><ul>${li(e.pro)}</ul></div><div class="con"><h4>A vigilar</h4><ul>${li(e.con)}</ul></div></div>`}
     <div class="kv" style="margin-top:10px">
-      ${kv('RSI (14)',fmt(e.rsi,0))}${e.sma50?kv('vs media 50',pct(e.p/e.sma50-1,1)):''}${e.sma200?kv('vs media 200',pct(e.p/e.sma200-1,1)):''}${kv('Desde máx. 52 sem.',pct(e.dd,1))}
+      ${trendKv(e,kv)}${kv('RSI (14)',fmt(e.rsi,0))}${e.sma50?kv('vs media 50',pct(e.p/e.sma50-1,1)):''}${e.sma200?kv('vs media 200',pct(e.p/e.sma200-1,1)):''}${kv('Desde máx. 52 sem.',pct(e.dd,1))}
       ${kv('Var. 1 mes',pct(e.r1m,1))}${kv('Var. 3 meses',pct(e.r3m,1))}${kv('Var. 6 meses',pct(e.r6m,1))}${kv('Var. 12 meses',pct(e.r12m,1))}
       ${e.rs1!=null?kv('vs S&amp;P 1 mes',pct(e.rs1,1)):''}${e.rs3!=null?kv('vs S&amp;P 3 meses',pct(e.rs3,1)):''}${e.rs6!=null?kv('vs S&amp;P 6 meses',pct(e.rs6,1)):''}
     </div>
@@ -1035,7 +1035,7 @@ function openDetail(t){
     </div>
     <div class="grid2">
       <div><h4 style="margin:0 0 6px">Análisis técnico</h4><div class="kv">
-        ${kv('RSI (14)',fmt(o.rsi,0))}${kv('vs media 50',pct(o.p/o.sma50-1,1))}${kv('vs media 200',pct(o.p/o.sma200-1,1))}
+        ${trendKv(o,kv)}${kv('RSI (14)',fmt(o.rsi,0))}${kv('vs media 50',pct(o.p/o.sma50-1,1))}${kv('vs media 200',pct(o.p/o.sma200-1,1))}
         ${kv('Desde máx. 52 sem.',pct(o.dd,1))}${kv('Máx. / mín. 52 sem.',fmt(o.hi52)+' / '+fmt(o.lo52))}
         ${kv('Var. 1 mes',pct(o.r1m,1))}${kv('Var. 3 meses',pct(o.r3m,1))}${kv('Var. 6 meses',pct(o.r6m,1))}${kv('Var. 12 meses',pct(o.r12m,1))}
         ${kv('Volatilidad anual',o.volat==null?'—':fmt(o.volat*100,0)+'%')}${kv('Volumen relativo',o.vol_ratio==null?'—':fmt(o.vol_ratio,2)+'x')}
@@ -1081,6 +1081,10 @@ function renderKpisUS(){
   const d=new Date(S.scr.generated);
   el.innerHTML=k.map(x=>`<div class="kpi us" title="Dato al cierre del ${d.toLocaleDateString('es-AR')}"><div class="l">${x[0]}</div><div class="v num ${x[3]||''}" style="text-align:left">${x[1]}</div><div class="s">${x[2]}</div></div>`).join('');
 }
+const TRC={2:'up',1:'up',0:'',[-1]:'down',[-2]:'down'};
+function trendKv(o,kv){if(!o.trend)return '';
+  return kv('Tendencia (media 200)',`<span class="${TRC[o.trend_n]||''}">${esc(o.trend)}</span>`)+kv('Ruedas del mismo lado',o.run200==null?'—':Math.abs(o.run200)+(Math.abs(o.run200)>=60?'+':'')+(o.run200>=0?' arriba':' debajo'))
+   +kv('vs media 40 semanas',o.sma40w?pct(o.p/o.sma40w-1,1):'—')+kv('vs media 200 semanas',o.d200w==null?'—':pct(o.d200w,1));}
 function renderKpis(){
   const d=S.data,k=[];
   const of=d.dolares&&d.dolares.find(x=>x.casa==='oficial'),bl=d.dolares&&d.dolares.find(x=>x.casa==='blue');
