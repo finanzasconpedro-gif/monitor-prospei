@@ -103,7 +103,7 @@ def technical(c, v):
     pb_days = max(1, len(w3) - 1 - hi3_i)
     pb_vol = (float(vv[-min(pb_days, 20):].mean() / vv[-60:].mean())
               if len(vv) >= 60 and vv[-60:].mean() > 0 and pb_days >= 3 else None)
-    return {**tr, "dd3": p / hi3 - 1, "hi3_age": pb_days, "hi52_age": hi52_age, "rebound": rebound,
+    return {**tr, **cross_state(c), **early_turn(c, vv if len(vv) == len(c) else None), "dd3": p / hi3 - 1, "hi3_age": pb_days, "hi52_age": hi52_age, "rebound": rebound,
             "pb_vol": pb_vol, "near50": bool(abs(p / s50 - 1) <= 0.02), "near200": bool(-0.01 <= p / s200 - 1 <= 0.03),
         "p": p, "sma20": s20, "sma50": s50, "sma200": s200,
         "sma200_up": s200 > s200_prev,
@@ -157,6 +157,111 @@ def trend_state(c, p, s200, s200_up):
             "d200w": (float(p / sma200w - 1) if sma200w else None)}
 
 
+def pivots(x, k=7, kind="low"):
+    """Índices de mínimos (o máximos) locales confirmados: el extremo de una ventana de +/- k ruedas."""
+    out = []
+    for i in range(k, len(x) - k):
+        w = x[i - k:i + k + 1]
+        if (kind == "low" and x[i] == w.min()) or (kind == "high" and x[i] == w.max()):
+            if not out or i - out[-1] > k:
+                out.append(i)
+    return out
+
+
+def early_turn(c, v):
+    """Señales tempranas de giro alcista (antes del Golden Cross). Devuelve dict con cada señal."""
+    n = len(c)
+    look = min(140, n)
+    cw, vw = c[-look:], (v[-look:] if v is not None and len(v) >= look else None)
+    ser = pd.Series(c)
+    d = ser.diff()
+    up = d.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+    dn = (-d.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    rsi_s = (100 - 100 / (1 + up / dn.replace(0, np.nan))).values[-look:]
+    lows, highs = pivots(cw, 7, "low"), pivots(cw, 7, "high")
+    p = float(cw[-1])
+    sig = {"et_hl": False, "et_div": False, "et_acc": False, "et_brk": False, "et_mom": False}
+    L1 = L2 = H = None
+    if len(lows) >= 2:
+        i1, i2 = lows[-2], lows[-1]
+        L1, L2 = float(cw[i1]), float(cw[i2])
+        sig["et_hl"] = bool(L2 > L1 * 1.01 and p > L2 and look - 1 - i2 <= 60)
+        sig["et_div"] = bool(L2 < L1 and np.isfinite(rsi_s[i1]) and rsi_s[i2] > rsi_s[i1] + 3 and look - 1 - i2 <= 60)
+    elif len(lows) == 1:
+        L2 = float(cw[lows[-1]])
+    hs = [h for h in highs if h < look - 3 and (not lows or h > lows[-2] if len(lows) >= 2 else True)]
+    if hs:
+        H = float(cw[hs[-1]])
+        sig["et_brk"] = bool(p > H)
+    if vw is not None:
+        dd = np.diff(cw[-21:])
+        vv = vw[-20:]
+        upv, dnv = vv[dd > 0].sum(), vv[dd < 0].sum()
+        sig["et_acc"] = bool(dnv > 0 and upv / dnv > 1.2)
+    macd = ser.ewm(span=12, adjust=False).mean() - ser.ewm(span=26, adjust=False).mean()
+    rs_now, rs_10 = rsi_s[-1], rsi_s[-11]
+    sig["et_mom"] = bool(macd.values[-1] > 0 or (rs_now > 50 and np.isfinite(rs_10) and rs_10 < 50))
+    sig.update(et_low=L2, et_high=H)
+    return sig
+
+
+def cross_state(c):
+    """Cruces de la media de 50 con la de 200 (Golden / Death Cross) y pendiente de la media de 200."""
+    ser = pd.Series(c)
+    m50, m200 = ser.rolling(50).mean().values, ser.rolling(200).mean().values
+    gap = (m50 / m200 - 1)[-80:]
+    gap = gap[np.isfinite(gap)]
+    out = {"cross": None, "cross_days": None, "cross_eta": None, "gap50": None, "slope200": None, "slope200_pct": None}
+    if len(gap) < 25:
+        return out
+    g = float(gap[-1])
+    out["gap50"] = g
+    sl = float(m200[-1] / m200[-21] - 1) if np.isfinite(m200[-21]) else 0.0
+    out["slope200_pct"] = sl
+    out["slope200"] = "Subiendo" if sl > 0.005 else "Bajando" if sl < -0.005 else "Plana"
+    sign = np.sign(gap)
+    days = None
+    for k in range(1, len(sign)):
+        if sign[-k] != sign[-k - 1] and sign[-k - 1] != 0:
+            days = k - 1
+            break
+    if days is not None and days <= 20:
+        out["cross"] = "Golden Cross reciente" if g > 0 else "Death Cross reciente"
+        out["cross_days"] = int(days)
+        return out
+    speed = (g - float(gap[-11])) / 10      # cambio de la distancia por rueda
+    if -0.02 < g < 0 and speed > 0:
+        eta = -g / speed
+        if eta <= 40:
+            out["cross"], out["cross_eta"] = "Golden Cross en formación", int(round(eta))
+    elif 0 < g < 0.02 and speed < 0:
+        eta = g / -speed
+        if eta <= 40:
+            out["cross"], out["cross_eta"] = "Death Cross en formación", int(round(eta))
+    return out
+
+
+def cross_texts(r):
+    pro, con = [], []
+    st = getattr(r, "cross", None)
+    if not st:
+        return pro, con
+    pend = {"Subiendo": "la media de 200 ya está subiendo, lo que le da más fuerza a la señal",
+            "Plana": "la media de 200 está plana",
+            "Bajando": "pero la media de 200 todavía baja: es una señal más débil, conviene confirmar"}.get(r.slope200, "")
+    if st == "Golden Cross reciente":
+        pro.append(f"Golden Cross {'hoy' if r.cross_days == 0 else 'hace ' + str(r.cross_days) + ' ruedas'}: la media de 50 cruzó por encima de la de 200; {pend}.")
+    elif st == "Golden Cross en formación":
+        pro.append(f"Golden Cross en formación (a vigilar): la media de 50 está {fx(abs(r.gap50)*100,1)}% debajo de la de 200 y se acerca; "
+                   f"al ritmo actual cruzaría en unas {r.cross_eta} ruedas. Es una señal tardía: confirma el giro, no lo anticipa.")
+    elif st == "Death Cross reciente":
+        con.append(f"Death Cross {'hoy' if r.cross_days == 0 else 'hace ' + str(r.cross_days) + ' ruedas'}: la media de 50 cruzó por debajo de la de 200.")
+    elif st == "Death Cross en formación":
+        con.append(f"Death Cross en formación: la media de 50 está {fx(r.gap50*100,1)}% arriba de la de 200 y se acerca; "
+                   f"al ritmo actual cruzaría en unas {r.cross_eta} ruedas.")
+    return pro, con
+
+
 def trend_text(r, short=False):
     """Frase de tendencia para A favor / A vigilar. Devuelve (es_favor, texto)."""
     n, run, d = r.trend_n, abs(int(r.run200)), r.dist200
@@ -187,6 +292,10 @@ def score_tech(df):
     t += df.trend_n.map({2: 10, 1: 6, 0: 4, -1: 2, -2: 0}).fillna(4)
     t += np.where(df.sma50 > df.sma200, 10, 0)
     t += np.where(df.sma200_up, 10, 0)
+    if "et_ctx" in df:
+        t += np.where(df.et_ctx, 1.5 * df.et_n, 0)
+    t += df.cross.map({"Golden Cross reciente": 3, "Golden Cross en formación": 2,
+                       "Death Cross reciente": -3, "Death Cross en formación": -2}).fillna(0)
     # Momentum relativo 6m sin el ultimo mes (25)
     mom = (1 + df.r6m) / (1 + df.r1m) - 1
     t += 25 * pct_rank(mom).fillna(0.3)
@@ -278,12 +387,18 @@ def setup(r):
     up = r.trend_n >= 1
     if up and r.dd > -0.04 and r.vol_ratio and r.vol_ratio > 1.15:
         return "Ruptura de máximos"
+    if r.cross == "Golden Cross reciente" and r.p > r.sma200:
+        return "Golden Cross"
     if r.recovery:
         return "Recuperación"
     if is_correction(r):
         return "Corrección con señal de rebote" if r.rebound else "Corrección en curso"
     if up and r.sma50 > r.sma200:
         return "Tendencia alcista"
+    if not up and r.et_ctx and r.et_n >= 4:
+        return "Giro temprano"
+    if not up and r.cross == "Golden Cross en formación":
+        return "Golden Cross en formación"
     if not up and r.rsi < 35 and r.af >= 60:
         return "Sobrevendida con buenos fundamentos"
     if r.macd_cross:
@@ -328,6 +443,14 @@ def reasons(r):
     pro_c, con_c = correction_texts(r)
     pro += pro_c
     con += con_c
+    if r.et_ctx and r.et_n >= 3:
+        names = [t for k, t in [("et_hl", "mínimo más alto"), ("et_div", "divergencia alcista del RSI"),
+                                ("et_acc", "acumulación por volumen"), ("et_brk", "rompió el último máximo"),
+                                ("et_mom", "impulso girando a positivo"), ("et_rs", "le gana al S&P en el último mes")] if getattr(r, k)]
+        pro.append(f"Giro temprano: {int(r.et_n)} de 6 señales ({', '.join(names)}). Son señales anticipadas: fallan más que las de confirmación.")
+    pro_x, con_x = cross_texts(r)
+    pro += pro_x
+    con += con_x
     if r.dd > -0.03 and r.vol_ratio and r.vol_ratio < 0.9:
         con.append("Está cerca de máximos pero con volumen bajo: la suba muestra poca convicción frente a la resistencia.")
     elif r.dd > -0.03:
@@ -510,6 +633,12 @@ def build(universe, prices, infos, hist=None):
     for col in num_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["fcf_y"] = df.fcf / df.mcap
+    # ---- giro temprano: 6 señales; solo tiene sentido después de una caída
+    spy = technical(*prices[BENCH]) if BENCH in prices else None
+    df["et_rs"] = ((df.r1m - spy["r1m"]) > 0) if spy and spy.get("r1m") is not None else False
+    et_cols = ["et_hl", "et_div", "et_acc", "et_brk", "et_mom", "et_rs"]
+    df["et_n"] = df[et_cols].fillna(False).astype(bool).sum(axis=1)
+    df["et_ctx"] = (df.trend_n <= 0) & (df.dd <= -0.05)   # viene de una caída y todavía sin tendencia alcista
     # se calcula ANTES del puntaje fundamental porque lo usa la regla cíclica
     # P/E de pares: mediana de su industria si tiene al menos 5 empresas comparables; si no, de su sector
     fpe_pos = df.fpe.where(df.fpe > 0)
@@ -675,11 +804,13 @@ def build_etfs(prices, series=None):
         elif r.macd_h < 0:
             con.append("El MACD está debajo de su señal: impulso de corto plazo débil.")
         pc, cc = correction_texts(r)
-        pro += pc
-        con += cc
+        px, cx = cross_texts(r)
+        pro += pc + px
+        con += cc + cx
         d = {k: r2(getattr(r, k)) for k in ["sector", "etf", "p", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200",
                                               "hi52", "lo52", "dd", "volat", "macd_h", "macd_cross", "at", "at_own", "rs_score",
-                                              "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w"]}
+                                              "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w",
+                                              "cross", "cross_days", "cross_eta", "gap50", "slope200", "slope200_pct"]}
         d.update(rrg=pts, rrg_dates=dates, head=head)
         d.update(fase=fase, rs1=r2(rs1), rs3=r2(rs3), rs6=r2(rs6), pro=pro, con=con,
                  closes=[round(float(x), 2) for x in r.closes])
@@ -834,7 +965,7 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
             "sma200", "hi52", "lo52", "dd", "volat", "vol_ratio", "macd_h", "macd_cross", "pe", "fpe", "peg", "pb",
             "rev_g", "eps_g", "eps", "fwd_eps", "fwd_eps_g", "roe", "margin", "op_margin", "de", "div", "target",
             "upside", "rec", "n_an", "at", "af", "score", "f_val", "f_gro", "f_qua", "f_sol", "f_ana", "sec_fpe",
-            "setup", "elig", "rank", "peer_lbl", "v_peer", "v_hist", "v_an", "val_verdict", "val_cheap", "val_n",
+            "setup", "elig", "rank", "et_hl", "et_div", "et_acc", "et_brk", "et_mom", "et_rs", "et_n", "et_ctx", "et_low", "et_high", "cross", "cross_days", "cross_eta", "gap50", "slope200", "slope200_pct", "peer_lbl", "v_peer", "v_hist", "v_an", "val_verdict", "val_cheap", "val_n",
             "div5", "ps", "pe_hist", "ps_hist", "hist_n", "dd3", "hi3_age", "rebound", "pb_vol", "recovery", "trend", "trend_n", "run200", "dist200", "sma40w", "sma200w", "w_above", "d200w", "industry", "fcf", "fcf_y", "earn_days", "cyc", "one_off"]
     for r in df.itertuples():
         d = {k: r2(getattr(r, k)) for k in keep}
