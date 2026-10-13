@@ -473,7 +473,13 @@ def build(universe, prices, infos, hist=None):
         if not t:
             continue
         inf = infos.get(sym, {})
-        sec = SECTOR_ES.get(inf.get("sector") or gics, SECTOR_ES.get(gics, gics or "Otros"))
+        # S&P 500: clasificación oficial GICS (la misma que usan los ETFs sectoriales XLK, XLI, etc.)
+        # ADRs (sin GICS): clasificación de Yahoo Finance
+        if gics:
+            sec = SECTOR_ES.get(gics, gics)
+        else:
+            ys = inf.get("sector") or ""
+            sec = SECTOR_ES.get(ys, ys or "Otros")
         eps, fwd_eps = num(inf.get("trailingEps")), num(inf.get("forwardEps"))
         target = num(inf.get("targetMeanPrice"))
         rows.append(dict(t, t=sym, name=inf.get("shortName") or name, sector=sec, region=region,
