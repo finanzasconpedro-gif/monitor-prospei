@@ -1163,12 +1163,12 @@ function openDetail(t){
         ${kv('MACD',o.macd_h>0?'Positivo':'Negativo')}
       </div></div>
       <div><h4 style="margin:0 0 6px">Análisis fundamental</h4><div class="kv">
-        ${kv('P/E histórico',o.pe>0?fmt(o.pe,1)+'x':'—')}${kv('P/E esperado',o.fpe>0?fmt(o.fpe,1)+'x':'—')}${kv('P/E esperado '+(o.peer_lbl==='su industria'?'industria':'sector'),o.sec_fpe?fmt(o.sec_fpe,1)+'x':'—')}${kv('P/E promedio histórico',o.pe_hist?fmt(o.pe_hist,1)+'x ('+(o.hist_n||'')+' años)':'—')}${kv('Precio / ventas (hoy · histórico)',o.ps?fmt(o.ps,1)+'x · '+(o.ps_hist?fmt(o.ps_hist,1)+'x':'—'):'—')}${kv('Dividendo promedio 5 años',o.div5?fmt(o.div5,2)+'%':'—')}
-        ${kv('PEG',o.peg>0?fmt(o.peg,2):'—')}${kv('Precio / valor libros',o.pb>0?fmt(o.pb,1)+'x':'—')}
+        ${kv('P/E histórico',o.pe>0?fmt(o.pe,1)+'x':'—')}${kv('P/E esperado',o.fpe>0?fmt(o.fpe,1)+'x':'—')}${o.val_model==='book'?kv('P/VL de '+(o.peer_lbl||'pares'),o.peer_pb?fmt(o.peer_pb,2)+'x':'—'):kv('P/E esperado '+(o.peer_lbl==='su industria'?'industria':'sector'),o.sec_fpe?fmt(o.sec_fpe,1)+'x':'—')}${kv('P/E promedio histórico',o.pe_hist?fmt(o.pe_hist,1)+'x ('+(o.hist_n||'')+' años)':'—')}${kv('Precio / ventas (hoy · histórico)',o.ps?fmt(o.ps,1)+'x · '+(o.ps_hist?fmt(o.ps_hist,1)+'x':'—'):'—')}${kv('Dividendo promedio 5 años',o.div5?fmt(o.div5,2)+'%':'—')}
+        ${kv('PEG',o.val_model!=='pe'||o.eps_gap>0.4?'no aplica':o.peg>0?fmt(o.peg,2):'—')}${kv('Precio / valor libros (hoy · histórico)',o.pb>0?fmt(o.pb,2)+'x'+(o.pb_hist?' · '+fmt(o.pb_hist,2)+'x':''):'—')}
         ${kv('Crec. ventas (a/a)',pct(o.rev_g,1))}${kv('Crec. ganancias (a/a)',pct(o.eps_g,1))}
         ${kv('ROE',o.roe==null?'—':fmt(o.roe*100,1)+'%')}${kv('Margen neto',o.margin==null?'—':fmt(o.margin*100,1)+'%')}
-        ${kv('Deuda / patrimonio',o.sector==='Financiero'?'n/a (banco)':o.de==null?'—':fmt(o.de/100,2)+'x')}${kv('Dividendo',o.div==null?'—':fmt(o.div,2)+'%')}
-        ${kv('Flujo de caja libre',o.sector==='Financiero'?'n/a (banco)':o.fcf==null?'—':'US$ '+vol(o.fcf))}${kv('Rendimiento FCF',o.sector==='Financiero'||o.fcf_y==null?'—':fmt(o.fcf_y*100,1)+'%')}
+        ${kv('Deuda / patrimonio',o.sector==='Financiero'?'n/a (financiero)':o.de==null?'—':fmt(o.de/100,2)+'x')}${kv('Dividendo',o.div==null?'—':fmt(o.div,2)+'%')}
+        ${kv('Flujo de caja libre',o.sector==='Financiero'?'n/a (financiero)':o.fcf==null?'—':'US$ '+vol(o.fcf))}${kv('Rendimiento FCF',o.sector==='Financiero'||o.fcf_y==null?'—':fmt(o.fcf_y*100,1)+'%')}
         ${kv('Próximo balance',o.earn_days==null||o.earn_days<0?'—':o.earn_days===0?'Hoy':'en '+o.earn_days+' días')}${kv('Industria',esc(o.industry||'—'))}
         ${kv('Precio objetivo',o.target&&o.n_an>=3?'US$ '+fmt(o.target)+' ('+pct(o.upside,1)+')':'—')}${kv('Consenso ('+(o.n_an||0)+' analistas)',recTxt)}
       </div></div>
@@ -1213,7 +1213,7 @@ function valLensHtml(o){
     if(v!=null){if(v<thrCheap){cls2='up';lab='Barata'}else if(v>thrDear){cls2='down';lab='Cara'}else{lab='En línea'}}
     const amt=v==null?'':an?` · potencial ${pct(-v,0)}`:Math.abs(v)<0.005?'':` · ${fmt(Math.abs(v)*100,0)}% ${v<0?'más barata':'más cara'}`;
     return `<div class="lens"><div class="note">${t}</div><b class="${cls2}">${lab}${amt}</b><div class="note">${detail}</div></div>`};
-  const hd=[];if(o.pe_hist&&o.pe>0)hd.push(`P/E ${fmt(o.pe,1)}x vs ${fmt(o.pe_hist,1)}x`);if(o.ps&&o.ps_hist)hd.push(`P/V ${fmt(o.ps,1)}x vs ${fmt(o.ps_hist,1)}x`);if(o.div>0&&o.div5)hd.push(`Div. ${fmt(o.div,2)}% vs ${fmt(o.div5,2)}%`);
+  const hd=[];const Mh=o.val_model||'pe';if(Mh==='pe'&&!(o.eps_gap>0.4)&&o.pe_hist&&o.pe>0)hd.push(`P/E ${fmt(o.pe,1)}x vs ${fmt(o.pe_hist,1)}x`);if((Mh==='pe'||Mh==='sales')&&o.ps&&o.ps_hist)hd.push(`P/V ${fmt(o.ps,1)}x vs ${fmt(o.ps_hist,1)}x`);if(Mh!=='sales'&&o.div>0&&o.div5)hd.push(`Div. ${fmt(o.div,2)}% vs ${fmt(o.div5,2)}%`);
   const verdict={Barata:['up','Barata en '+o.val_cheap+' de '+o.val_n+' miradas'],Cara:['down','Cara en la mayoría de las miradas'],Neutral:['','Sin consenso: valuación neutral'],'Pico de ciclo':['down','Pico de ciclo: el P/E bajo no es señal de barata']}[o.val_verdict]||['',''];
   const M=o.val_model||'pe';
   const peerDet=M==='book'?(o.pb&&o.peer_pb?`P/VL ${fmt(o.pb,2)}x vs ${fmt(o.peer_pb,2)}x`:''):
