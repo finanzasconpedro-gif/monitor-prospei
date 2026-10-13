@@ -520,7 +520,9 @@ def reasons(r):
         pro.append(f"Su dividendo rinde {fx(r.div,2)}%, por encima de su promedio de 5 años ({fx(r.div5,2)}%): el precio está bajo frente a su historia.")
     if r.cyc:
         con.append("Posible pico de ciclo: en industrias cíclicas un P/E bajo suele aparecer cerca del techo de ganancias. La valuación del puntaje está limitada.")
-    if r.one_off:
+    if r.one_off and r.t in HOLDINGS:
+        con.append("Su ganancia contable incluye la suba o baja de su cartera de inversiones: varía mucho de un trimestre a otro y no refleja el negocio operativo. Por eso se valúa por valor libros.")
+    elif r.one_off:
         con.append("La ganancia del último trimestre creció mucho más que las ventas: posiblemente inflada por resultados no recurrentes. El crecimiento se mide por ventas.")
     if r.sector != "Financiero" and pd.notna(r.fcf):
         if r.fcf < 0:
@@ -537,7 +539,8 @@ def reasons(r):
     if pd.notna(r.eps_g) and not r.one_off:
         (grow if r.eps_g >= 0 else con).append(f"Ganancias: {f_pct(r.eps_g,1)} interanual en el último trimestre.")
     if pd.notna(r.fwd_eps_g):
-        grow.append(f"Los analistas esperan que la ganancia por acción pase de {fx(r.eps,2)} a {fx(r.fwd_eps,2)} US$ ({f_pct(r.fwd_eps_g)}).")
+        grow.append(f"Los analistas esperan que la ganancia por acción pase de {fx(r.eps,2)} a {fx(r.fwd_eps,2)} US$ ({f_pct(r.fwd_eps_g)})."
+                    + (" La de 12 meses incluye resultados extraordinarios, así que la comparación no indica una caída del negocio." if r.eps_gap_flag else ""))
     if r.n_an >= 3 and pd.notna(r.upside):
         grow.append(f"Precio objetivo promedio de {int(r.n_an)} analistas: US$ {fx(r.target,2)} ({f_pct(r.upside)} desde el precio actual).")
         if r.upside < 0:
@@ -693,6 +696,8 @@ def audit_and_model(df):
                 "reit": ": en inmobiliarias la depreciación distorsiona la ganancia.",
                 "sales": ": la empresa no tiene ganancias positivas o utilizables.",
                 "na": ": los datos disponibles no permiten estimar un valor justo."}[mdl])
+        if mdl == "book" and r.eps_gap_flag:
+            df.at[i, "audit"].append(f"La ganancia de 12 meses y la esperada difieren {r.eps_gap*100:.0f}%: el P/E y el PEG no se usan.")
         if mdl == "pe" and r.eps_gap_flag:
             df.at[i, "audit"].append(f"Ganancia no comparable: la de 12 meses y la esperada difieren {r.eps_gap*100:.0f}%. "
                                      "Para pares se usa precio/ventas y el P/E no entra en el valor justo.")
@@ -986,6 +991,9 @@ def add_rotation(df, series):
 VM_WEEKS = 26
 
 
+AN_K = 1.0   # sesgo optimista típico de los precios objetivo (se calcula cada día)
+
+
 def fair_value(r):
     """Valor justo según el método de cada empresa, promediado con el precio objetivo de los analistas."""
     vals, w, src = [], [], []
@@ -1019,7 +1027,7 @@ def fair_value(r):
         if d0 and d5 and pd.notna(d0) and pd.notna(d5) and d0 > 0 and d5 > 0:
             add(r.p * d0 / d5, 1, "dividendo vs su promedio de 5 años")
     if r.n_an >= 3 and pd.notna(r.target):
-        add(r.target, 1.0 if r.n_an >= 5 else 0.5, "analistas" + ("" if r.n_an >= 5 else " (pocos, peso reducido)"))
+        add(r.target / AN_K, 1.0 if r.n_an >= 5 else 0.5, "analistas ajustados por optimismo" + ("" if r.n_an >= 5 else ", pocos: peso reducido"))
     if not vals:
         return None, None
     return float(np.average(vals, weights=w)), " + ".join(src)
@@ -1076,13 +1084,16 @@ VM_DOUBT = -0.35   # descuento mayor a esto (ya calibrado) = valuación dudosa
 
 def add_value_momentum(df, series):
     out = {k: [] for k in ["vm", "fair", "fair_raw", "fair_src", "fair_up", "vm_z", "vm_zp", "vm_st", "vm_doubt"]}
+    # calibración: solo el precio objetivo de los analistas, que tiene un sesgo optimista sistemático
+    # (la mediana del S&P suele quedar 8-12% arriba del precio). Los métodos por múltiplos ya son relativos.
+    global AN_K
+    us = df[(df.region == "EE.UU.") & (df.n_an >= 5) & df.target.notna()]
+    ratios = (us.target / us.p).clip(0.5, 2)
+    AN_K = float(ratios.median()) if len(ratios) >= 20 else 1.0
+    df.attrs["vm_k"] = AN_K
     raw = [fair_value(r) for r in df.itertuples()]
-    # calibración: el valor justo se escala para que la acción típica del S&P 500 quede justo en su valor justo
-    ratios = pd.Series([f / r.p for (f, _), r in zip(raw, df.itertuples()) if f and r.region == "EE.UU."])
-    k = float(ratios.median()) if len(ratios) >= 20 else 1.0
-    df.attrs["vm_k"] = k
     for (fair_r, src), r in zip(raw, df.itertuples()):
-        fair = fair_r / k if fair_r else None
+        fair = fair_r
         ser = series.get(r.t) if series else None
         pts = None
         if fair and ser is not None and len(ser) > 260:
