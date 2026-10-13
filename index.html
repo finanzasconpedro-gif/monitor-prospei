@@ -257,6 +257,11 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
       <div class="tw"><table id="tb-uni"></table></div>
       <div style="text-align:center;margin-top:10px"><button class="chip" id="more-uni">Mostrar más</button></div>
     </div>
+    <div class="card" id="audit-card" hidden>
+      <details><summary style="cursor:pointer"><b>Auditoría de datos</b> <span class="note" id="audit-meta"></span></summary>
+        <p class="sub" style="margin-top:8px">Empresas cuyos datos de Yahoo tienen alguna particularidad. El screener las detecta cada día y ajusta el método de valuación para que el valor justo no quede distorsionado. Tocá un ticker para ver su ficha.</p>
+        <div id="audit-list"></div></details>
+    </div>
   </section>
 
   <!-- MAPA -->
@@ -646,7 +651,7 @@ async function loadScreener(){
     S.scr=null;
     $('#opo-meta').innerHTML='Todavía no hay análisis generado. En GitHub entrá a <b>Actions → Screener diario PROSPEI → Run workflow</b> y esperá unos 15 minutos.';
   }
-  renderKpisUS();renderBuy();renderTop();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
+  renderKpisUS();renderBuy();renderTop();renderAudit();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
 }
 function liveOf(t){const us=S.data.us||{};for(const k of [t,t.replace('-','.'),t.replace('-','')]){const x=us[k];if(x&&ok(x.c))return x}return null}
 function cedearOf(r){
@@ -669,6 +674,13 @@ const cedCell=o=>!o.ced?'<span class="note">—</span>':o.ced.type==='local'?`<s
 function passTf(o){return S.tf==='ced'?o.hasCed:S.tf==='latam'?o.region!=='EE.UU.':true}
 const vdCls=v=>'vd vd-'+String(v||'').replace(/ /g,'-');
 const vdChip=o=>o.verdict?`<span class="${vdCls(o.verdict)}" title="${esc(o.verdict_why||'')}">${esc(o.verdict)}</span>${o.verdict_new?'<span class="vd-new">NUEVA</span>':''}`:'—';
+function renderAudit(){
+  const c=$('#audit-card'),A=S.scr&&S.scr.audit_summary;if(!A||!Object.keys(A).length){c.hidden=true;return}
+  c.hidden=false;const ks=Object.keys(A),n=new Set(ks.flatMap(k=>A[k])).size;
+  $('#audit-meta').textContent=`· ${n} empresas con alguna particularidad en ${ks.length} categorías`;
+  $('#audit-list').innerHTML=ks.map(k=>`<div style="margin:8px 0"><b>${esc(k)}</b> <span class="note">(${A[k].length})</span><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${A[k].map(t=>`<button class="chip" data-audit="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`).join('');
+  $('#audit-list').querySelectorAll('[data-audit]').forEach(b=>b.onclick=()=>openDetail(b.dataset.audit));
+}
 function renderBuy(){
   if(!S.scr){$('#buy-card').classList.add('hide');return}
   const all=S.scr.rows.map(enrich);
@@ -1195,6 +1207,7 @@ function earlyHtml(o){
    <div class="kv" style="margin-top:8px">${lv.join('')}</div>
    <p class="note" style="margin:8px 0 0">Entrada escalonada sugerida: 1/3 con 4 o más señales y stop debajo del último mínimo; 1/3 al recuperar y sostener la media de 200; 1/3 con Golden Cross y la media de 200 dejando de bajar. Las señales tempranas fallan más que las de confirmación.</p></div>`;
 }
+const VMODEL={pe:'P/E (ganancias)',book:'precio / valor libros',reit:'dividendo y analistas',sales:'precio / ventas',na:'sin método confiable'};
 function valLensHtml(o){
   const cell=(t,v,detail,thrCheap,thrDear,an)=>{let cls2='',lab='Sin dato';
     if(v!=null){if(v<thrCheap){cls2='up';lab='Barata'}else if(v>thrDear){cls2='down';lab='Cara'}else{lab='En línea'}}
@@ -1202,10 +1215,17 @@ function valLensHtml(o){
     return `<div class="lens"><div class="note">${t}</div><b class="${cls2}">${lab}${amt}</b><div class="note">${detail}</div></div>`};
   const hd=[];if(o.pe_hist&&o.pe>0)hd.push(`P/E ${fmt(o.pe,1)}x vs ${fmt(o.pe_hist,1)}x`);if(o.ps&&o.ps_hist)hd.push(`P/V ${fmt(o.ps,1)}x vs ${fmt(o.ps_hist,1)}x`);if(o.div>0&&o.div5)hd.push(`Div. ${fmt(o.div,2)}% vs ${fmt(o.div5,2)}%`);
   const verdict={Barata:['up','Barata en '+o.val_cheap+' de '+o.val_n+' miradas'],Cara:['down','Cara en la mayoría de las miradas'],Neutral:['','Sin consenso: valuación neutral'],'Pico de ciclo':['down','Pico de ciclo: el P/E bajo no es señal de barata']}[o.val_verdict]||['',''];
-  return `<div class="lensbox"><div class="lens-h"><b>Valuación: tres miradas</b> <span class="fase" style="${verdict[0]==='up'?'background:var(--upbg);color:var(--up)':verdict[0]==='down'?'background:var(--downbg);color:var(--down)':''}">${esc(verdict[1])}</span></div>
-    <div class="lens-g">${cell('vs '+esc(o.peer_lbl||'su sector'),o.v_peer,o.fpe>0&&o.sec_fpe?`P/E esp. ${fmt(o.fpe,1)}x vs ${fmt(o.sec_fpe,1)}x`:'',-0.15,0.15)}
+  const M=o.val_model||'pe';
+  const peerDet=M==='book'?(o.pb&&o.peer_pb?`P/VL ${fmt(o.pb,2)}x vs ${fmt(o.peer_pb,2)}x`:''):
+    (M==='sales'||(M==='pe'&&o.eps_gap>0.4))?(o.ps&&o.peer_ps?`P/V ${fmt(o.ps,1)}x vs ${fmt(o.peer_ps,1)}x`:''):
+    M==='reit'?'No aplica en REITs: la depreciación distorsiona la ganancia':M==='na'?'Datos no comparables':
+    (o.fpe>0&&o.sec_fpe?`P/E esp. ${fmt(o.fpe,1)}x vs ${fmt(o.sec_fpe,1)}x`:'');
+  if(M==='book'&&o.pb&&o.pb_hist)hd.unshift(`P/VL ${fmt(o.pb,2)}x vs ${fmt(o.pb_hist,2)}x`);
+  return `<div class="lensbox"><div class="lens-h"><b>Valuación: tres miradas</b> <span class="note">· método: ${esc(VMODEL[M]||M)}</span> <span class="fase" style="${verdict[0]==='up'?'background:var(--upbg);color:var(--up)':verdict[0]==='down'?'background:var(--downbg);color:var(--down)':''}">${esc(verdict[1])}</span></div>
+    <div class="lens-g">${cell('vs '+esc(o.peer_lbl||'su sector'),o.v_peer,peerDet,-0.15,0.15)}
     ${cell('vs su propia historia',o.v_hist,hd.join(' · ')||'Sin historial disponible',-0.10,0.10)}
-    ${cell('vs analistas',o.v_an,o.n_an>=3&&o.target?`Objetivo US$ ${fmt(o.target)} (${o.n_an} analistas)`:'Menos de 3 analistas',-0.20,0,1)}</div></div>`;
+    ${cell('vs analistas',o.v_an,o.n_an>=3&&o.target?`Objetivo US$ ${fmt(o.target)} (${o.n_an} analistas${o.n_an<5?', peso reducido':''})`:'Menos de 3 analistas',-0.20,0,1)}</div>
+    ${o.audit&&o.audit.length?`<details style="margin-top:8px"><summary class="note" style="cursor:pointer">🔎 Cómo se valuó y particularidades de los datos (${o.audit.length})</summary><ul class="note" style="margin:6px 0 0;padding-left:18px">${o.audit.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></details>`:''}</div>`;
 }
 const LIGHTN={cal:'Calidad',val:'Valuación',tec:'Técnico',evt:'Evento'};
 const lightTxt={cal:['Débil o caja negativa','Aceptable','Sólida'],val:['Cara o pico de ciclo','Neutral','Barata vs sector'],tec:['Débil','Neutral','Sano'],evt:['Balance en ≤7 días','Balance en ≤3 semanas','Sin balance cercano']};
@@ -1215,6 +1235,7 @@ function alertTags(o){const t=[];
   if(o.cyc)t.push('⚠️ Pico de ciclo');
   if(o.one_off)t.push('⚠️ Ganancia no recurrente');
   if(o.vm_doubt)t.push('⚠️ Valuación dudosa');
+  if(o.val_model==='na')t.push('⚠️ Sin valuación confiable');
   if(o.cross==='Death Cross reciente')t.push('⚠️ Death Cross');
   if(o.fcf!=null&&o.fcf<0&&o.sector!=='Financiero')t.push('⚠️ Caja negativa');
   return t.map(x=>`<span class="alert-tag">${x}</span>`).join('')}
