@@ -97,6 +97,16 @@ tr[data-t]{cursor:pointer}
 .tc b{font-weight:700}
 .tmtip{position:fixed;z-index:60;background:#14171e;color:#fff;border:1px solid #3a3f4b;border-radius:8px;padding:8px 10px;font-size:12.5px;pointer-events:none;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .tmtip.hide{display:none}
+.vd{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.vd-Comprar{background:#0f9d58;color:#fff}
+.vd-Comprar-en-partes{background:var(--upbg);color:var(--up);border:1px solid var(--up)}
+.vd-Vigilar{background:color-mix(in srgb,#1d7af3 14%,transparent);color:#1d7af3}
+.vd-Mantener{background:var(--warnbg);color:var(--warn)}
+.vd-Evitar{background:var(--downbg);color:var(--down)}
+.vd-new{background:#e0a800;color:#1a1300;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;vertical-align:middle}
+.verdict-box{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0 4px}
+.verdict-box .vd{font-size:14px;padding:5px 12px}
+.buy-new{border:1px solid #e0a800;background:var(--best);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px}
 .lensbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
 .lens-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .lens-g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
@@ -206,6 +216,19 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
 
   <!-- OPORTUNIDADES -->
   <section id="t-opo">
+    <div class="card" id="buy-card">
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <h2>Comprar hoy</h2>
+          <p class="sub">Solo las que cumplen los 5 criterios a la vez: técnico ≥ 65, fundamental ≥ 60, ninguna luz roja, recorrido a valor justo ≥ 10% y zona Compra o señal de entrada. Sin balance en los próximos 7 días.</p>
+        </div>
+        <div id="verdict-count" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      </div>
+      <div id="buy-new"></div>
+      <div class="tw"><table id="tb-buy"></table></div>
+      <details style="margin-top:12px"><summary class="note" style="cursor:pointer">Ver también las de <b>Comprar en partes</b> (entrada escalonada con stop)</summary>
+        <div class="tw" style="margin-top:8px"><table id="tb-part"></table></div></details>
+    </div>
     <div class="card">
       <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
         <div style="flex:1;min-width:260px">
@@ -399,7 +422,7 @@ function parseRatio(s){const m=String(s).match(/^\s*(\d+(?:[.,]\d+)?)\s*:\s*(\d+
 async function getJ(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error(url+' → '+r.status);return r.json()}
 
 /* ---------- state ---------- */
-const S={data:{},ref:{},sort:{acc:['vol',-1],mep:['liq',-1],ced:['desv',1],top:['rank',1],uni:['score',-1],vm:['fair_up',-1]},
+const S={data:{},ref:{},sort:{buy:['score',-1],part:['score',-1],acc:['vol',-1],mep:['liq',-1],ced:['desv',1],top:['rank',1],uni:['score',-1],vm:['fair_up',-1]},
   fav:new Set(store('fav')||[]),ratioOv:store('ratios')||{},pa:'lider',lq:'1',cf:'all',cclsrc:'bono'};
 function saveFav(){store('fav',[...S.fav])}
 
@@ -423,7 +446,7 @@ function table(el,key,cols,rows,rowCls,limit){
   if(!r.length)h+=`<tr><td colspan="${cols.length}" class="note" style="text-align:center;padding:20px">Sin datos para mostrar.</td></tr>`;
   r.forEach(o=>{h+=`<tr class="${rowCls?rowCls(o):''}"${o.t?` data-t="${o.t}"`:''}>`+cols.map(c=>`<td class="${c.n?'n':''}">${c.f?c.f(o):(o[c.k]??'—')}</td>`).join('')+'</tr>'});
   el.innerHTML=h+'</tbody>';
-  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(k==='fav')return;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];({acc:renderAcc,mep:renderMep,ced:renderCed,top:renderTop,uni:renderUni,vm:renderVM})[key]()});
+  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;if(k==='fav')return;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];({buy:renderBuy,part:renderBuy,acc:renderAcc,mep:renderMep,ced:renderCed,top:renderTop,uni:renderUni,vm:renderVM})[key]()});
   el.querySelectorAll('.star').forEach(b=>b.onclick=e=>{e.stopPropagation();const s=b.dataset.s;S.fav.has(s)?S.fav.delete(s):S.fav.add(s);saveFav();renderAcc();renderCed();renderTop();renderUni()});
   el.querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.t));
   el.querySelectorAll('.edit').forEach(b=>b.onclick=e=>{e.stopPropagation();editRatio(b.dataset.s)});
@@ -587,7 +610,7 @@ async function loadScreener(){
     S.scr=null;
     $('#opo-meta').innerHTML='Todavía no hay análisis generado. En GitHub entrá a <b>Actions → Screener diario PROSPEI → Run workflow</b> y esperá unos 15 minutos.';
   }
-  renderKpisUS();renderTop();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
+  renderKpisUS();renderBuy();renderTop();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
 }
 function liveOf(t){const us=S.data.us||{};for(const k of [t,t.replace('-','.'),t.replace('-','')]){const x=us[k];if(x&&ok(x.c))return x}return null}
 function cedearOf(r){
@@ -608,6 +631,34 @@ const pctCol=(x,rng)=>{if(x==null||!isFinite(x))return '#7a8597';const a=Math.mi
 const sbar=v=>`<div class="sbar"><i><b style="width:${Math.max(0,Math.min(100,v||0))}%;background:${scoreCol(v)}"></b></i><span>${v==null?'—':Math.round(v)}</span></div>`;
 const cedCell=o=>!o.ced?'<span class="note">—</span>':o.ced.type==='local'?`<span class="ced-ok">BYMA ${o.ced.code}</span>`:`<span class="ced-ok">CEDEAR ${o.ced.ratio}</span>`;
 function passTf(o){return S.tf==='ced'?o.hasCed:S.tf==='latam'?o.region!=='EE.UU.':true}
+const vdCls=v=>'vd vd-'+String(v||'').replace(/ /g,'-');
+const vdChip=o=>o.verdict?`<span class="${vdCls(o.verdict)}" title="${esc(o.verdict_why||'')}">${esc(o.verdict)}</span>${o.verdict_new?'<span class="vd-new">NUEVA</span>':''}`:'—';
+function renderBuy(){
+  if(!S.scr){$('#buy-card').classList.add('hide');return}
+  const all=S.scr.rows.map(enrich);
+  if(!all.some(o=>o.verdict)){$('#buy-card').classList.add('hide');return}
+  $('#buy-card').classList.remove('hide');
+  const cnt={};all.forEach(o=>{cnt[o.verdict]=(cnt[o.verdict]||0)+1});
+  $('#verdict-count').innerHTML=['Comprar','Comprar en partes','Vigilar','Mantener','Evitar'].map(v=>`<span class="${vdCls(v)}" style="font-size:11px">${v} ${cnt[v]||0}</span>`).join('');
+  const nw=all.filter(o=>o.verdict_new);
+  const prevBuy=all.filter(o=>o.verdict_prev==='Comprar'&&o.verdict!=='Comprar');
+  $('#buy-new').innerHTML=(nw.length||prevBuy.length)?`<div class="buy-new">${nw.length?`<b>Novedades del día:</b> pasaron a Comprar ${nw.map(o=>`<a href="#" data-open="${esc(o.t)}"><b>${esc(o.t)}</b></a>`).join(', ')}.`:''}${prevBuy.length?` ${nw.length?'<br>':''}<b>Dejaron de ser Comprar:</b> ${prevBuy.map(o=>`<a href="#" data-open="${esc(o.t)}">${esc(o.t)}</a> (ahora ${esc(o.verdict)})`).join(', ')}.`:''}</div>`:'';
+  $('#buy-new').querySelectorAll('[data-open]').forEach(a=>a.onclick=e=>{e.preventDefault();openDetail(a.dataset.open)});
+  const cols=[
+    {k:'fav',h:'',f:o=>star(o.t)},
+    {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b>${o.verdict_new?'<span class="vd-new">NUEVA</span>':''}<div class="note">${esc(o.name)}</div>`},
+    {k:'verdict_why',h:'Por qué',f:o=>`<span class="note">${esc(o.verdict_why)}</span>`},
+    {k:'score',h:'Puntaje',f:o=>sbar(o.score)},
+    {k:'fair_up',h:'Recorrido',n:1,f:o=>o.fair_up==null?'—':`<b class="${cls(o.fair_up)}">${pct(o.fair_up,1)}</b>`},
+    {k:'px',h:'Precio US$',n:1,f:o=>fmt(o.px)},
+    {k:'sector',h:'Sector',f:o=>esc(o.sector)},
+    {k:'hasCed',h:'Argentina',f:cedCell}
+  ];
+  const buy=all.filter(o=>o.verdict==='Comprar').sort((a,b)=>b.score-a.score);
+  table($('#tb-buy'),'buy',cols,buy);
+  if(!buy.length)$('#tb-buy').innerHTML='<tbody><tr><td class="note" style="padding:16px;text-align:center">Hoy ninguna acción cumple los 5 criterios a la vez. Es normal: es un filtro exigente. Mirá las de <b>Comprar en partes</b> o el top 30.</td></tr></tbody>';
+  table($('#tb-part'),'part',cols,all.filter(o=>o.verdict==='Comprar en partes').sort((a,b)=>b.score-a.score));
+}
 function renderTop(){
   const el=$('#tb-top');if(!S.scr){el.innerHTML='';return}
   let rows=S.scr.rows.filter(r=>r.elig).map(enrich).filter(passTf).sort((a,b)=>b.score-a.score).slice(0,S.scr.top_n||30);
@@ -616,6 +667,7 @@ function renderTop(){
     {k:'rank',h:'#',n:1,f:o=>`<b>${o.rank}</b>`},
     {k:'fav',h:'',f:o=>star(o.t)},
     {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b><div class="note" style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.name)}</div>`},
+    {k:'verdict',h:'Veredicto',f:vdChip},
     {k:'setup',h:'Señal',f:o=>`${setupChip(o.setup)}${alertTags(o)?'<div>'+alertTags(o)+'</div>':''}`},
     {k:'lights',h:'Cal · Val · Téc · Evt',f:o=>lightsHtml(o.lights)},
     {k:'score',h:'Puntaje',f:o=>sbar(o.score)},
@@ -638,6 +690,7 @@ function renderUni(){
   const cols=[
     {k:'fav',h:'',f:o=>star(o.t)},
     {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b> <span class="note">${esc(o.name)}</span>`},
+    {k:'verdict',h:'Veredicto',f:vdChip},
     {k:'score',h:'Puntaje',f:o=>sbar(o.score)},
     {k:'at',h:'AT',n:1,f:o=>Math.round(o.at)},
     {k:'af',h:'AF',n:1,f:o=>Math.round(o.af)},
@@ -891,7 +944,8 @@ function renderVM(){
     {k:'fav',h:'',f:o=>star(o.t)},
     {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b> <span class="note">${esc(o.name)}</span>`},
     {k:'vm_st',h:'Etapa',f:o=>`<span class="fase" style="background:${ZCOL[o.vm_z]}1f;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span> <span class="note">${esc(o.vm_st)}</span>${alertTags(o)?'<div>'+alertTags(o)+'</div>':''}`},
-    {k:'vm_zp',h:'Hace 8 sem.',f:o=>`<span class="note">${esc(o.vm_zp||'—')}</span>`},
+    {k:'verdict',h:'Veredicto',f:vdChip},
+    {k:'vm_zp',h:'Hace 8 sem. → hoy',f:o=>o.vm_zp?`<span class="fase" style="background:${ZCOL[o.vm_zp]}1f;color:${ZCOL[o.vm_zp]}">${esc(o.vm_zp)}</span> → <span class="fase" style="background:${ZCOL[o.vm_z]}1f;color:${ZCOL[o.vm_z]}">${esc(o.vm_z)}</span>`:'—'},
     {k:'fair_up',h:'Recorrido a valor justo',n:1,f:o=>o.fair_up==null?'—':`<b class="${cls(o.fair_up)}">${pct(o.fair_up,1)}</b>`},
     {k:'mom',h:'Momentum',n:1,f:o=>fmt(o.mom,0)},
     {k:'rsi',h:'RSI',n:1,f:o=>fmt(o.rsi,0)},
@@ -1038,6 +1092,7 @@ function openDetail(t){
       </div>
       <div class="bigscore" style="background:${scoreCol(o.score)}"><b>${Math.round(o.score)}</b><small>Puntaje PROSPEI</small></div>
     </div>
+    ${o.verdict?`<div class="verdict-box"><span class="${vdCls(o.verdict)}">${esc(o.verdict)}</span><div><div style="font-size:13.5px">${esc(o.verdict_why)}</div>${o.verdict_prev&&o.verdict_prev!==o.verdict?`<div class="note">Ayer: ${esc(o.verdict_prev)}</div>`:''}</div></div>`:''}
     ${o.lights?`<div class="semaf">${['cal','val','tec','evt'].map(k=>{const v=o.lights[k];return `<div><i class="l${v==null?'null':v}"></i><span><b>${LIGHTN[k]}</b><br><span class="note">${v==null?'sin dato':lightTxt[k][v]}</span></span></div>`}).join('')}</div>`:''}
     ${alertTags(o)?`<div style="margin-bottom:6px">${alertTags(o)}</div>`:''}
     <div class="pillars">
