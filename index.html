@@ -368,12 +368,14 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   <section id="t-ced" class="hide">
     <div class="card">
       <h2>CEDEARs desarbitrados</h2>
-      <p class="sub"><b>CCL implícito</b> = precio del CEDEAR en pesos × ratio ÷ precio del subyacente en EE.UU. Si es <span class="down"><b>menor</b></span> al CCL de referencia, el CEDEAR está <b>barato</b> respecto de su subyacente; si es <span class="up"><b>mayor</b></span>, está <b>caro</b>. <b>TC del papel</b> = precio en pesos ÷ precio en D, comparado con el MEP de referencia.</p>
+      <p class="sub"><b>Precio justo en pesos</b> = precio en EE.UU. ÷ ratio × CCL. <b>Precio justo en D</b> (dólar MEP) = precio en EE.UU. ÷ ratio × (CCL ÷ MEP). <b>Desarbitraje</b> = precio de mercado ÷ precio justo − 1: negativo es <span class="up"><b>barato</b></span>, positivo es <span class="down"><b>caro</b></span>, entre −1% y +1% está en precio. Puede haber desarbitraje en D y no en pesos (o al revés) cuando el <b>TC del papel</b> (precio en pesos ÷ precio en D) se aparta del MEP. <b>Conviene comprar en</b>: la moneda en la que el CEDEAR está más barato frente a su precio justo.</p>
+      <p class="note" id="ced-refs" style="margin:-4px 0 10px"></p>
       <div class="bar">
         <input type="search" id="q-ced" placeholder="Buscar CEDEAR…">
         <button class="chip on" data-cf="all">Todos</button>
         <button class="chip" data-cf="cheap">Baratos (&lt; −1%)</button>
         <button class="chip" data-cf="exp">Caros (&gt; +1%)</button>
+        <button class="chip" data-cf="split">Desarbitraje solo en $ o solo en D</button>
         <button class="chip" data-cf="fav">★ Mi lista</button>
         <label class="note" style="display:flex;align-items:center;gap:6px">CCL ref.
           <select id="cclsrc"><option value="bono">Bonos (AL30C/GD30C)</option><option value="ced">Mediana CEDEARs</option></select>
@@ -403,7 +405,7 @@ const API='https://data912.com/live/';
 const LIDER=['ALUA','BBAR','BMA','BYMA','CEPU','COME','CRES','EDN','GGAL','IRSA','LOMA','METR','PAMP','SUPV','TECO2','TGNO4','TGSU2','TRAN','TXAR','VALO','YPFD'];
 /* ratio "a:b" = a CEDEARs equivalen a b acciones */
 const RATIOS={AAPL:'20:1',ABBV:'10:1',ABEV:'1:3',ABNB:'15:1',ABT:'4:1',ACN:'75:1',ADBE:'44:1',ADGO:'1:1',ADI:'15:1',AEM:'6:1',AIG:'5:1',AMAT:'5:1',AMD:'10:1',AMGN:'30:1',AMX:'1:1',AMZN:'144:1',ANET:'29:1',ARKK:'10:1',ARM:'27:1',ASML:'146:1',ASTS:'15:1',AVGO:'39:1',AXP:'15:1',AZN:'4:1',B:'2:1',BA:'24:1','BA.C':'41:1',BABA:'9:1',BBD:'1:1',BHP:'2:1',BIDU:'11:1',BIOX:'1:1',BK:'2:1',BKNG:'700:1',BMY:'3:1',BP:'5:1',BRKB:'22:1',C:'3:1',CAAP:'1:4',CAT:'20:1',CCJ:'23:1',CDE:'1:1',CEG:'45:1',CL:'3:1',COIN:'27:1',COP:'25:1',COST:'48:1',CRM:'18:1',CRWD:'79:1',CRWV:'27:1',CSCO:'5:1',CVS:'15:1',CVX:'16:1',CX:'1:1',DAL:'8:1',DE:'40:1',DELL:'74:1',DIA:'20:1',DISN:'12:1',EBAY:'2:1',EEM:'5:1',ETHA:'5:1',EWZ:'2:1',F:'1:1',FCX:'3:1',FDX:'10:1',FSLR:'18:1',FXI:'5:1',GDX:'10:1',GE:'8:1',GEV:'180:1',GFI:'1:1',GGB:'1:4',GILD:'4:1',GLD:'50:1',GLOB:'18:1',GM:'6:1',GOOGL:'58:1',GS:'13:1',HD:'32:1',HIMS:'4:1',HMY:'1:1',HON:'8:1',HOOD:'29:1',HSBC:'2:1',IBIT:'10:1',IBM:'15:1',INTC:'5:1',IREN:'12:1',ISRG:'90:1',ITUB:'1:1',IWM:'10:1',JD:'4:1',JNJ:'15:1',JPM:'15:1',KLAC:'34:1',KO:'5:1',LLY:'56:1',LMT:'20:1',LRCX:'56:1',MA:'33:1',MCD:'24:1',MELI:'120:1',META:'24:1',MMM:'10:1',MO:'4:1',MRK:'5:1',MRVL:'14:1',MSFT:'30:1',MSTR:'20:1',MU:'5:1',NBIS:'27:1',NEM:'3:1',NFLX:'48:1',NIO:'4:1',NKE:'12:1',NOW:'172:1',NU:'2:1',NVDA:'24:1',NVO:'7:1',OKLO:'28:1',ORCL:'3:1',OXY:'5:1',PAAS:'3:1',PAGS:'3:1',PANW:'50:1',PBR:'1:1',PDD:'25:1',PEP:'18:1',PFE:'4:1',PG:'15:1',PLTR:'3:1',PYPL:'8:1',QCOM:'11:1',QQQ:'20:1',RIO:'8:1',RKLB:'12:1',SBUX:'12:1',SE:'32:1',SHOP:'107:1',SLV:'6:1',SMH:'50:1',SNDK:'170:1',SNOW:'30:1',SPOT:'28:1',SPY:'60:1',STNE:'3:1',T:'3:1',TEN:'1:1',TGT:'24:1',TMO:'22:1',TSLA:'15:1',TSM:'9:1',TXN:'5:1',TXR:'4:1',UBER:'2:1',UNH:'33:1',V:'18:1',VALE:'2:1',VIST:'3:1',VST:'26:1',VZ:'4:1',WFC:'5:1',WMT:'18:1',XLE:'2:1',XLF:'2:1',XOM:'10:1',XP:'4:1',XYZ:'20:1',ZM:'47:1'};
-Object.assign(RATIOS,{XLK:'46:1',XLF:'2:1',XLV:'29:1',XLY:'43:1',XLP:'16:1',XLI:'28:1',XLE:'2:1',XLU:'15:1',XLB:'18:1',XLRE:'9:1',XLC:'19:1',AAL:'2:1',ADP:'6:1',AVY:'18:1',BIB:'13:1',BKR:'7:1',BX:'30:1',CAH:'3:1',CCL:'3:1',DD:'5:1',DECK:'25:1',DHR:'54:1',DOW:'6:1',EA:'14:1',ECL:'56:1',EFX:'16:1',ETSY:'16:1',GLW:'41:1',GRMN:'3:1',HAL:'2:1',HOG:'3:1',HPQ:'1:1',HSY:'21:1',HWM:'1:1',IBKR:'17:1',IFF:'12:1',IP:'4:1',JCI:'2:1',KMB:'6:1',LIN:'102:1',LVS:'2:1',MDLZ:'15:1',MDT:'4:1',MMC:'16:1',MOS:'5:1',MRNA:'19:1',MS:'41:1',MSI:'20:1',NEE:'19:1',NUE:'16:1',O:'13:1',ORLY:'222:1',PCAR:'3:1',PLD:'29:1',PM:'18:1',PSX:'6:1',ROST:'41:1',RTX:'5:1',SCHW:'13:1',SHW:'69:1',SLB:'3:1',SNA:'6:1',SPGI:'45:1',SWKS:'21:1',SYY:'8:1',TJX:'22:1',TMUS:'33:1',TRVV:'6:1',UAL:'5:1',UNP:'20:1',USB:'5:1',VRSN:'6:1',VRTX:'101:1',WDC:'92:1',WELL:'48:1',SBS:'1:2',EBR:'1:4',SID:'1:8',ERJ:'1:1',SUZ:'1:1',BRFS:'1:3',UGP:'1:1',ELP:'1:13',BSBR:'1:1',VIV:'1:1',TIMB:'1:1',BAK:'2:1'});
+Object.assign(RATIOS,{SKHY:'25:1',TEM:'12:1',CLS:'20:1',MP:'10:1',ONDS:'2:1',RGTI:'2:1',BMNR:'8:1',TLN:'63:1',XLK:'46:1',XLF:'2:1',XLV:'29:1',XLY:'43:1',XLP:'16:1',XLI:'28:1',XLE:'2:1',XLU:'15:1',XLB:'18:1',XLRE:'9:1',XLC:'19:1',AAL:'2:1',ADP:'6:1',AVY:'18:1',BIB:'13:1',BKR:'7:1',BX:'30:1',CAH:'3:1',CCL:'3:1',DD:'5:1',DECK:'25:1',DHR:'54:1',DOW:'6:1',EA:'14:1',ECL:'56:1',EFX:'16:1',ETSY:'16:1',GLW:'41:1',GRMN:'3:1',HAL:'2:1',HOG:'3:1',HPQ:'1:1',HSY:'21:1',HWM:'1:1',IBKR:'17:1',IFF:'12:1',IP:'4:1',JCI:'2:1',KMB:'6:1',LIN:'102:1',LVS:'2:1',MDLZ:'15:1',MDT:'4:1',MMC:'16:1',MOS:'5:1',MRNA:'19:1',MS:'41:1',MSI:'20:1',NEE:'19:1',NUE:'16:1',O:'13:1',ORLY:'222:1',PCAR:'3:1',PLD:'29:1',PM:'18:1',PSX:'6:1',ROST:'41:1',RTX:'5:1',SCHW:'13:1',SHW:'69:1',SLB:'3:1',SNA:'6:1',SPGI:'45:1',SWKS:'21:1',SYY:'8:1',TJX:'22:1',TMUS:'33:1',TRVV:'6:1',UAL:'5:1',UNP:'20:1',USB:'5:1',VRSN:'6:1',VRTX:'101:1',WDC:'92:1',WELL:'48:1',SBS:'1:2',EBR:'1:4',SID:'1:8',ERJ:'1:1',SUZ:'1:1',BRFS:'1:3',UGP:'1:1',ELP:'1:13',BSBR:'1:1',VIV:'1:1',TIMB:'1:1',BAK:'2:1'});
 const USMAP={'BA.C':['BAC'],BRKB:['BRK.B','BRK-B','BRKB','BRK/B'],DISN:['DIS'],B:['B','GOLD'],BIB:['BIIB'],TRVV:['TRV']};
 const CED_INV={BAC:'BA.C','BRK-B':'BRKB',DIS:'DISN',BIIB:'BIB',TRV:'TRVV',GOOG:'GOOGL'};
 const AR_LOCAL={GGAL:'GGAL',YPF:'YPFD',PAM:'PAMP',BMA:'BMA',BBAR:'BBAR',SUPV:'SUPV',CEPU:'CEPU',TGS:'TGSU2',EDN:'EDN',CRESY:'CRES',IRS:'IRSA',LOMA:'LOMA',TEO:'TECO2'};
@@ -558,9 +560,39 @@ function buildCed(){
     const d=cm[sym+'D'];
     out.push({sym,usym,ratio:rs,edited:!!S.ratioOv[sym],c:c.c,chg:c.pct_change,uc:u.c,uchg:u.pct_change,
       impl:c.c/(u.c*sh), implAsk:ok(c.px_ask)?c.px_ask/(u.c*sh):null,
+      cD:(d&&ok(d.c))?d.c:null, volD:(d&&ok(d.v))?d.v*d.c:0,
       tc:(d&&ok(d.c))?c.c/d.c:null, vol:ok(c.v)?c.v*c.c:0, sh});
   });
   S.data.ced=out;
+}
+function cedCalc(r,ccl,mep){
+  /* Lógica: precio justo $ = subyacente ÷ ratio × CCL ; precio justo D = subyacente ÷ ratio × (CCL ÷ MEP) */
+  const o=Object.assign({},r);
+  const fx=(ccl&&mep)?ccl/mep:null;
+  o.justo=ccl?r.uc*r.sh*ccl:null;
+  o.justoD=fx?r.uc*r.sh*fx:null;
+  const dA=o.justo?r.c/o.justo-1:null, dD=(o.justoD&&r.cD)?r.cD/o.justoD-1:null;
+  o.badA=dA!=null&&Math.abs(dA)>MAXDESV; o.badD=dD!=null&&Math.abs(dD)>MAXDESV;
+  o.desv=o.badA?null:dA; o.desvD=o.badD?null:dD; o.rawDesv=dA; o.rawDesvD=dD; o.bad=o.badA;
+  o.tcDesv=(r.tc&&mep)?r.tc/mep-1:null;
+  const T=0.01;
+  o.onlyD=o.desvD!=null&&o.desv!=null&&Math.abs(o.desvD)>T&&Math.abs(o.desv)<=T;
+  o.onlyA=o.desvD!=null&&o.desv!=null&&Math.abs(o.desv)>T&&Math.abs(o.desvD)<=T;
+  /* dónde conviene comprar: el que esté más barato frente a su precio justo */
+  if(o.desv!=null&&o.desvD!=null&&o.volD>0){const g=o.desv-o.desvD;o.best=g>0.005?'D':g<-0.005?'$':'='}else o.best=o.desv!=null?'$':null;
+  o.bestDesv=o.best==='D'?o.desvD:o.desv;
+  return o;
+}
+const desvPill=(d,bad,raw)=>bad?`<span class="pill warn" title="Desvío ${pct(raw)}">revisar ratio</span>`:(d==null?'—':`<span class="pill ${Math.abs(d)<=0.01?'':d<0?'up':'down'}">${pct(d)} ${d<-0.01?'barato':(d>0.01?'caro':'en precio')}</span>`);
+function cedBoxExtra(code,ratio,usPx){
+  const cm={};(S.data.cedears||[]).forEach(c=>{if(c&&c.symbol)cm[c.symbol]=c});
+  const c=cm[code],d=cm[code+'D'],pr=parseRatio(ratio),ccl=S.cedRef||(S.ref.ccl&&S.ref.ccl.v),mep=S.ref.mep&&S.ref.mep.v;
+  if(!(c&&ok(c.c)&&pr&&ccl&&usPx))return '';
+  const o=cedCalc({c:c.c,cD:d&&ok(d.c)?d.c:null,volD:d&&ok(d.v)?d.v*d.c:0,uc:usPx,sh:pr.b/pr.a,tc:d&&ok(d.c)?c.c/d.c:null},ccl,mep);
+  let h=`<br>En pesos: <b>$ ${fmt(c.c)}</b> · justo $ ${fmt(o.justo)} · ${desvPill(o.desv,o.badA,o.rawDesv)}`;
+  if(o.cD)h+=`<br>En dólares (${esc(code)}D): <b>US$ ${fmt(o.cD,2)}</b> · justo US$ ${fmt(o.justoD,2)} · ${desvPill(o.desvD,o.badD,o.rawDesvD)}`;
+  if(o.best)h+=`<br>Conviene comprar en: <b>${o.best==='D'?'dólares (D)':o.best==='$'?'pesos':'indistinto'}</b>`;
+  return h;
 }
 function renderCed(){
   const el=$('#tb-ced');const C=S.data.ced;if(!C){el.innerHTML='';return}
@@ -568,29 +600,33 @@ function renderCed(){
   let ref=S.cclsrc==='bono'&&S.ref.ccl?S.ref.ccl.v:null;
   if(!ref){ref=median(okRows.map(r=>r.impl));}
   const mep=S.ref.mep&&S.ref.mep.v;
+  $('#ced-refs').innerHTML=ref&&mep?`Referencias: CCL <b>$ ${fmt(ref)}</b> · MEP <b>$ ${fmt(mep)}</b> · CCL/MEP <b>${fmt(ref/mep,4)}</b>`:'';
   const q=$('#q-ced').value.trim().toUpperCase();
-  let rows=C.map(r=>{const desv=ref?r.impl/ref-1:null;const bad=desv!=null&&Math.abs(desv)>MAXDESV;
-    return Object.assign({},r,{desv:bad?null:desv,rawDesv:desv,bad,justo:ref?r.uc*ref*r.sh:null,tcDesv:(r.tc&&mep)?r.tc/mep-1:null})});
+  let rows=C.map(r=>cedCalc(r,ref,mep));
   if(q)rows=rows.filter(r=>r.sym.includes(q)||(r.usym||'').includes(q));
-  if(S.cf==='cheap')rows=rows.filter(r=>r.desv!=null&&r.desv<-0.01&&r.vol>0);
-  if(S.cf==='exp')rows=rows.filter(r=>r.desv!=null&&r.desv>0.01&&r.vol>0);
+  const live=r=>r.vol>0||r.volD>0;
+  if(S.cf==='cheap')rows=rows.filter(r=>live(r)&&((r.desv!=null&&r.desv<-0.01)||(r.desvD!=null&&r.desvD<-0.01&&r.volD>0)));
+  if(S.cf==='exp')rows=rows.filter(r=>live(r)&&((r.desv!=null&&r.desv>0.01)||(r.desvD!=null&&r.desvD>0.01&&r.volD>0)));
+  if(S.cf==='split')rows=rows.filter(r=>live(r)&&(r.onlyD||r.onlyA));
   if(S.cf==='fav')rows=rows.filter(r=>S.fav.has(r.sym));
   const cols=[
     {k:'fav',h:'',f:o=>star(o.sym)},
-    {k:'sym',h:'CEDEAR',f:o=>`<b>${o.sym}</b>${o.usym!==o.sym?` <span class="note">(${o.usym})</span>`:''}`},
-    {k:'c',h:'Precio $',n:1,f:o=>fmt(o.c)},
-    {k:'justo',h:'Precio justo $',n:1,f:o=>fmt(o.justo)},
-    {k:'desv',h:'Desarbitraje',n:1,f:o=>o.bad?`<span class="pill warn" title="Desvío ${pct(o.rawDesv)}">revisar ratio</span>`:(o.desv==null?'—':`<span class="pill ${o.desv<0?'down':'up'}">${pct(o.desv)} ${o.desv<-0.01?'barato':(o.desv>0.01?'caro':'')}</span>`)},
-    {k:'impl',h:'CCL implícito',n:1,f:o=>fmt(o.impl)},
+    {k:'sym',h:'CEDEAR',f:o=>`<b>${o.sym}</b>${o.usym!==o.sym?` <span class="note">(${o.usym})</span>`:''}${o.onlyD?'<div><span class="alert-tag">desarbitraje solo en D</span></div>':o.onlyA?'<div><span class="alert-tag">desarbitraje solo en $</span></div>':''}`},
     {k:'uc',h:'Subyacente US$',n:1,f:o=>fmt(o.uc)},
     {k:'ratio',h:'Ratio',n:1,f:o=>`<span class="mono">${o.ratio}</span>${o.edited?'*':''} <button class="star edit" data-s="${o.sym}" title="Editar ratio">✎</button>`},
-    {k:'tc',h:'TC del papel ($/D)',n:1,f:o=>fmt(o.tc)},
-    {k:'tcDesv',h:'vs MEP ref.',n:1,f:o=>o.tcDesv==null?'—':`<span class="${cls(o.tcDesv)}">${pct(o.tcDesv)}</span>`},
+    {k:'c',h:'Precio $',n:1,f:o=>`<b>${fmt(o.c)}</b>`},
+    {k:'justo',h:'Justo $',n:1,f:o=>fmt(o.justo)},
+    {k:'desv',h:'Desarb. $',n:1,f:o=>desvPill(o.desv,o.badA,o.rawDesv)},
+    {k:'cD',h:'Precio D (US$)',n:1,f:o=>o.cD?`<b>${fmt(o.cD,2)}</b>`:'<span class="note">sin especie D</span>'},
+    {k:'justoD',h:'Justo D',n:1,f:o=>o.cD?fmt(o.justoD,2):'—'},
+    {k:'desvD',h:'Desarb. D',n:1,f:o=>o.cD?desvPill(o.desvD,o.badD,o.rawDesvD)+(o.volD>0?'':'<div class="note">sin operaciones</div>'):'—'},
+    {k:'tc',h:'TC papel ($/D)',n:1,f:o=>o.tc?`${fmt(o.tc)}<div class="note ${cls(o.tcDesv)}">${pct(o.tcDesv)} vs MEP</div>`:'—'},
+    {k:'bestDesv',h:'Conviene comprar en',f:o=>o.best==='D'?'<b class="up">Dólares (D)</b>':o.best==='$'?'<b>Pesos</b>':o.best==='='?'<span class="note">Indistinto</span>':'—'},
     {k:'chg',h:'Var. $',n:1,f:o=>`<span class="${cls(o.chg)}">${o.chg==null?'—':pct(o.chg/100)}</span>`},
     {k:'vol',h:'Monto $',n:1,f:o=>vol(o.vol)}
   ];
   S.cedRef=ref;
-  table(el,'ced',cols,rows,o=>o.vol>0?'':'dim');
+  table(el,'ced',cols,rows,o=>live(o)?'':'dim');
 }
 
 /* ---------- Oportunidades AT + AF ---------- */
@@ -738,7 +774,7 @@ function openEtf(tk){
   const ratio=RATIOS[tk];
   let ced='';
   if(ratio){const c=(S.data.cedears||[]).find(x=>x.symbol===tk),pr=parseRatio(ratio),ccl=S.cedRef||(S.ref.ccl&&S.ref.ccl.v);
-    let extra='';if(c&&ok(c.c)&&pr&&ccl&&l.px){const justo=l.px*ccl*pr.b/pr.a,desv=c.c/justo-1;extra=` Precio en BYMA: <b>$ ${fmt(c.c)}</b> · precio justo $ ${fmt(justo)} · ${Math.abs(desv)>MAXDESV?'<span class="pill warn">revisar ratio</span>':`<span class="pill ${desv<0?'down':'up'}">${pct(desv)} ${desv<-0.01?'barato':desv>0.01?'caro':'en precio'}</span>`}`}
+    const extra=cedBoxExtra(tk,ratio,l.px);
     ced=`<div class="cedbox">🇦🇷 Se puede comprar desde Argentina como <b>CEDEAR ${esc(tk)}</b> (ratio ${esc(ratio)}).${extra}</div>`}
   const comps=tk==='SPY'?[]:S.scr.rows.filter(r=>r.sector===e.sector).sort((a,b)=>b.score-a.score).slice(0,5);
   $('#mbody').innerHTML=`
@@ -1068,9 +1104,7 @@ function openDetail(t){
   if(o.ced&&o.ced.type==='ced'){
     const cm={};(S.data.cedears||[]).forEach(c=>{if(c&&c.symbol)cm[c.symbol]=c});
     const c=cm[o.ced.code],pr=parseRatio(o.ced.ratio),ccl=S.cedRef||(S.ref.ccl&&S.ref.ccl.v);
-    let extra='';
-    if(c&&ok(c.c)&&pr&&ccl&&o.px){const sh=pr.b/pr.a,justo=o.px*ccl*sh,desv=c.c/justo-1;
-      extra=` Precio en BYMA: <b>$ ${fmt(c.c)}</b> · precio justo $ ${fmt(justo)} · ${Math.abs(desv)>MAXDESV?'<span class="pill warn">revisar ratio</span>':`<span class="pill ${desv<0?'down':'up'}">${pct(desv)} ${desv<-0.01?'barato':desv>0.01?'caro':'en precio'}</span>`}`}
+    const extra=cedBoxExtra(o.ced.code,o.ced.ratio,o.px);
     ced=`<div class="cedbox">🇦🇷 Se puede comprar desde Argentina como <b>CEDEAR ${esc(o.ced.code)}</b> (ratio ${esc(o.ced.ratio)}).${extra}</div>`;
   }else if(o.ced&&o.ced.type==='local'){
     const st=(S.data.stocks||[]).find(x=>x.symbol===o.ced.code);
