@@ -912,11 +912,14 @@ def vm_status(pts):
         else:
             st = "En zona de compra"
     elif z == "Vigilar":
-        st = "Girando: el momentum mejora" if dy > 8 else "Barata pero sigue débil"
+        if zp == "Compra":
+            st = "Perdió impulso: volvió de Compra a Vigilar"
+        else:
+            st = "Girando: el momentum mejora" if dy > 8 else "Barata pero sigue débil"
     elif z == "Mantener":
         st = "Alcanzó su valor justo" if zp == "Compra" else "Sin margen, tendencia alcista"
     else:
-        st = "Cara y perdiendo fuerza"
+        st = "Perdió impulso: pasó de Mantener a Evitar" if zp == "Mantener" else "Cara y perdiendo fuerza"
     return z, zp, st
 
 
@@ -959,6 +962,90 @@ def add_value_momentum(df, series):
     return df
 
 
+# ---------------------------------------------------------------- veredicto
+def no_nan(x):
+    """Reemplaza NaN/infinito por null en todo el JSON (el navegador no acepta NaN)."""
+    if isinstance(x, dict):
+        return {k: no_nan(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [no_nan(v) for v in x]
+    if isinstance(x, float) and not math.isfinite(x):
+        return None
+    if isinstance(x, (np.floating,)):
+        return no_nan(float(x))
+    if isinstance(x, (np.integer,)):
+        return int(x)
+    if isinstance(x, (np.bool_,)):
+        return bool(x)
+    return x
+
+
+def load_prev_verdicts(path="data.json"):
+    """Veredictos de la corrida anterior (el data.json que todavía está en el repo)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        return {r["t"]: r.get("verdict") for r in d.get("rows", []) if r.get("verdict")}
+    except Exception:
+        return {}
+
+
+def add_verdicts(df, prev):
+    vv = [verdict(r) for r in df.itertuples()]
+    df["verdict"] = [v[0] for v in vv]
+    df["verdict_why"] = [v[1] for v in vv]
+    df["verdict_prev"] = [prev.get(t) for t in df.t]
+    df["verdict_new"] = [(v[0] == "Comprar" and bool(prev) and prev.get(t) != "Comprar") for v, t in zip(vv, df.t)]
+    return df
+
+
+V_AT, V_AF, V_UP = 65, 60, 0.10      # umbrales: técnico, fundamental, recorrido mínimo a valor justo
+ENTRY_SETUPS = {"Corrección con señal de rebote", "Golden Cross", "Ruptura de máximos"}
+
+
+def verdict(r):
+    L = lights(r)
+    up = r.fair_up if r.fair_up is not None and pd.notna(r.fair_up) else None
+    doubt = bool(getattr(r, "vm_doubt", False))
+    entry = (r.vm_z == "Compra") or (r.setup in ENTRY_SETUPS)
+    checks = [
+        (r.at >= V_AT, f"técnico ≥ {V_AT} (tiene {r.at:.0f})"),
+        (r.af >= V_AF, f"fundamental ≥ {V_AF} (tiene {r.af:.0f})"),
+        (all(L[k] != 0 for k in ("cal", "val", "tec")), "ninguna luz roja en calidad, valuación o técnico"),
+        (up is not None and up >= V_UP and not doubt,
+         "valuación confiable (hoy está marcada como dudosa)" if doubt else
+         f"recorrido a valor justo ≥ {V_UP*100:.0f}%" + (f" (tiene {up*100:+.0f}%)" if up is not None else "")),
+        (entry, "zona Compra o señal de entrada (rebote, Golden Cross, ruptura)"),
+    ]
+    falta = [t for ok, t in checks if not ok]
+    earn_soon = L["evt"] == 0
+    up_txt = f"{up*100:+.0f}%".replace(".", ",") if up is not None else "—"
+    # 1) Comprar
+    if not falta:
+        if earn_soon:
+            cuando = "hoy" if int(r.earn_days) == 0 else f"en {int(r.earn_days)} días"
+            return "Vigilar", f"Cumple todo, pero presenta balance {cuando}: esperar el resultado antes de entrar."
+        ent = r.setup if r.setup in ENTRY_SETUPS else "zona Compra"
+        return "Comprar", f"Cumple los 5 criterios: técnico {r.at:.0f}, fundamental {r.af:.0f}, recorrido {up_txt}, {ent.lower()}."
+    # 2) Evitar
+    if r.vm_z == "Evitar" or r.cyc or (r.val_verdict == "Cara" and r.trend_n <= 0):
+        why = "pico de ciclo" if r.cyc else "cara y perdiendo fuerza" if r.vm_z == "Evitar" else "cara y sin tendencia alcista"
+        return "Evitar", f"Evitar por ahora: {why}."
+    # 3) Mantener
+    if r.vm_z == "Mantener" or (up is not None and up < V_UP and r.trend_n >= 1):
+        if up is not None and up < 0:
+            return "Mantener", f"Ya supera su valor justo estimado (recorrido {up_txt}): si ya se tiene, mantener; no sumar."
+        return "Mantener", f"Cerca de su valor justo (recorrido {up_txt}): si ya se tiene, mantener; no sumar."
+    # 4) Comprar en partes
+    early = (getattr(r, "et_ctx", False) and r.et_n >= 4) or r.setup == "Golden Cross en formación"
+    if (r.af >= 55 and L["cal"] != 0 and L["val"] != 0 and up is not None and up >= V_UP and not doubt
+            and (early or entry) and not earn_soon):
+        how = "giro temprano" if early else "señal de entrada"
+        return "Comprar en partes", f"Entrada escalonada por {how}, con stop. Para compra plena falta: {', '.join(falta)}."
+    # 5) Vigilar
+    return "Vigilar", "Para pasar a Comprar falta: " + ", ".join(falta) + "." + (" Presenta balance en ≤7 días." if earn_soon else "")
+
+
 def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
     out_rows = []
     keep = ["t", "name", "sector", "region", "p", "mcap", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma20", "sma50",
@@ -971,6 +1058,9 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
         d = {k: r2(getattr(r, k)) for k in keep}
         d["rank"] = int(r.rank) if r.rank is not None and r.rank == r.rank else None
         d["lights"] = lights(r)
+        if getattr(r, "verdict", None):
+            vp = r.verdict_prev if isinstance(r.verdict_prev, str) else None
+            d["verdict"], d["verdict_why"], d["verdict_prev"], d["verdict_new"] = r.verdict, r.verdict_why, vp, bool(r.verdict_new)
         d["earn_days"] = int(r.earn_days) if pd.notna(r.earn_days) else None
         d["pro"], d["con"], d["grow"] = reasons(r)
         if getattr(r, "vm", None):
@@ -1051,12 +1141,15 @@ def main():
         macro["breadth"] = {"name": "Amplitud S&P 500", "v": round(float((us.p > us.sma200).mean()) * 100, 1),
                             "v50": round(float((us.p > us.sma50).mean()) * 100, 1)}
     df = add_value_momentum(df, series)
+    df = add_verdicts(df, load_prev_verdicts())
+    print("Veredictos:", df.verdict.value_counts().to_dict(), "· nuevas Comprar:", list(df[df.verdict_new].t))
     spy, etfs = build_etfs(prices, series)
     vm_dates = [d.strftime("%Y-%m-%d") for d in series[BENCH].resample("W-FRI").last().dropna().tail(VM_WEEKS + 1).index] if BENCH in series else []
     print("Zonas valor/momentum:", df.vm_z.value_counts().to_dict())
     print("ETFs sectoriales:", [(e["etf"], round(e["at"]), e["fase"]) for e in etfs])
     with open("data.json", "w", encoding="utf-8") as f:
-        json.dump(to_json(df, len(syms), spy, etfs, vm_dates, macro), f, ensure_ascii=False, separators=(",", ":"))
+        json.dump(no_nan(to_json(df, len(syms), spy, etfs, vm_dates, macro)), f, ensure_ascii=False,
+                  separators=(",", ":"), allow_nan=False)
     print("OK data.json:", len(df), "papeles. Top:", list(df[df["rank"].notna()].t))
 
 
