@@ -1252,6 +1252,20 @@ def save_signals(df, spy, path=SIGNAL_LOG):
     print(f"Registro de señales: {added} nuevas hoy · {len(log)} en total")
 
 
+def save_hist(series, syms, path="hist.json"):
+    """Cierres semanales de 5 años de cada papel: los usa la pestaña "Mi cartera" (precio a la fecha de compra
+    y máximo alcanzado desde la compra)."""
+    cols = {s: series[s] for s in syms if s in series}
+    if not cols:
+        return
+    w = pd.DataFrame(cols).resample("W-FRI").last().dropna(how="all")
+    out = {"dates": [d.strftime("%Y-%m-%d") for d in w.index],
+           "c": {s: [None if not np.isfinite(x) else round(float(x), 2) for x in w[s].values] for s in w.columns}}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, separators=(",", ":"))
+    print("Historial semanal:", len(out["c"]), "papeles,", len(out["dates"]), "semanas")
+
+
 def audit_summary(df):
     cats = {"Valuada por precio / valor libros": "Bancos, aseguradoras y holdings (valor libros)",
             "Valuada por dividendo y analistas": "REITs (dividendo y analistas)",
@@ -1391,6 +1405,7 @@ def main():
                   separators=(",", ":"), allow_nan=False)
     print("OK data.json:", len(df), "papeles. Top:", list(df[df["rank"].notna()].t))
     save_signals(df, spy)
+    save_hist(series, list(df.t))
 
 
 if __name__ == "__main__":
