@@ -49,7 +49,10 @@ FALLBACK = {   # por si no está data.json: 3 de mayor capitalización por secto
 VARIANTS = {
     "A": "Técnica del monitor: puntaje técnico ≥ 65 + señal de entrada (corrección con rebote, Golden Cross o ruptura) + sin balance en 7 días",
     "B": "A + fundamentos básicos de ese momento: ganancia positiva, ventas creciendo y P/E no más de 10% arriba de su promedio de 5 años",
+    "C": "A sin Golden Cross: solo corrección con rebote o ruptura de máximos",
+    "D": "C + los mismos fundamentos de B (la regla propuesta para el monitor)",
 }
+KEYS = ("A", "B", "C", "D")
 
 
 # ------------------------------------------------------------------ universo
@@ -332,7 +335,7 @@ def main():
         if n_t % 20 == 0:
             print(f"  técnico {n_t + 1}/{len(tick)}")
 
-    bucket = {u: {"A": [], "B": [], "base": []} for u in unis}
+    bucket = {u: {**{k: [] for k in KEYS}, "base": []} for u in unis}
     last_sig = {}
     et_cols = ["et_hl", "et_div", "et_acc", "et_brk", "et_mom", "et_rs"]
     for i in days:
@@ -359,7 +362,8 @@ def main():
             if a and fd is not None:
                 e, pe, med, g = fd.eps.iloc[i], fd.pe.iloc[i], fd.pe_med5.iloc[i], fd.rev_g.iloc[i]
                 b = bool(pd.notna(e) and e > 0 and pd.notna(g) and g > 0 and pd.notna(pe) and pd.notna(med) and pe <= med * 1.10)
-            sig = {"A": a, "B": b}
+            c_ = a and r.setup != "Golden Cross"
+            sig = {"A": a, "B": b, "C": c_, "D": b and c_}
             need = (i % 5 == 0) or any(sig[k] and i - last_sig.get((k, t), -999) > GAP for k in sig)
             res = evaluate(i, t, r, close, spy, idx, sec_of) if need else None
             for u, mem in member.items():
@@ -367,10 +371,10 @@ def main():
                     continue
                 if i % 5 == 0:
                     bucket[u]["base"].append(res)
-                for k in ("A", "B"):
+                for k in KEYS:
                     if sig[k] and i - last_sig.get((k, t), -999) > GAP:
                         bucket[u][k].append(res)
-            for k in ("A", "B"):
+            for k in KEYS:
                 if sig[k]:
                     last_sig[(k, t)] = i
 
@@ -379,11 +383,11 @@ def main():
         bset = sorted({f"{r['t']}|{r['date']}" for r in bk["B"]})
         return {
             "label": UNI_LBL[u], "n": len(member[u]), "tickers": unis[u],
-            "variants": {k: {"label": VARIANTS[k], **summarize(bk[k])} for k in ("A", "B")},
+            "variants": {k: {"label": VARIANTS[k], **summarize(bk[k])} for k in KEYS},
             "base": {"label": "Comprar cualquier día cualquiera de estas acciones (referencia)", **summarize(bk["base"])},
-            "by_sector": {k: by(bk[k], "sector") for k in ("A", "B")},
-            "by_setup": {k: by(bk[k], "setup") for k in ("A", "B")},
-            "by_year": {k: by(bk[k], "year") for k in ("A", "B", "base")},
+            "by_sector": {k: by(bk[k], "sector") for k in KEYS},
+            "by_setup": {k: by(bk[k], "setup") for k in KEYS},
+            "by_year": {k: by(bk[k], "year") for k in KEYS + ("base",)},
             "episodes": sorted([{k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()} for r in bk["A"]],
                                key=lambda r: r["date"], reverse=True),
             "b_set": bset,
@@ -403,7 +407,7 @@ def main():
     print(f"Balances de la SEC: {sec_ok} de {len(tick)}" + (f" · {sec_msg}" if sec_msg else ""))
     for u, U in out["universes"].items():
         print(f"\n##### {U['label']} ({U['n']} acciones)")
-        for k in ("A", "B"):
+        for k in KEYS:
             v = U["variants"][k]
             print(f"Variante {k}:")
             for h in H:
