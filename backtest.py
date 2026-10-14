@@ -53,6 +53,8 @@ VARIANTS = {
     "D": "C + los mismos fundamentos de B (la regla propuesta para el monitor)",
 }
 KEYS = ("A", "B", "C", "D")
+# reglas originales del monitor (la A incluye el Golden Cross; el monitor ya lo sacó en base a esta prueba)
+ENTRY_A = {"Corrección con señal de rebote", "Golden Cross", "Ruptura de máximos"}
 
 
 # ------------------------------------------------------------------ universo
@@ -356,7 +358,7 @@ def main():
             t = r.t
             ed = edates[t]
             earn_soon = bool(len(ed) and ((ed > d64) & (ed <= d7)).any())
-            a = bool(r.at >= S.V_AT and r.setup in S.ENTRY_SETUPS and not earn_soon)
+            a = bool(r.at >= S.V_AT and r.setup in ENTRY_A and not earn_soon)
             b = False
             fd = fund[t]
             if a and fd is not None:
