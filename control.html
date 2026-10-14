@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Control PROSPEI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f6f9; --card:#ffffff; --ink:#0f1b2d; --muted:#5b6b80; --line:#e2e8f0;
+  --brand:#0b2545; --brand2:#13315c; --accent:#1d7af3; --up:#0f9d58; --down:#d93025;
+  --upbg:#e6f6ee; --downbg:#fdecea; --best:#fff6d6; --bestline:#e0b300; --warn:#a15c00; --warnbg:#fff1dc;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1220; --card:#121b2e; --ink:#e6edf7; --muted:#93a3b8; --line:#22304a;
+    --brand:#0a1a33; --brand2:#12284d; --accent:#5aa2ff; --up:#34c77b; --down:#ff6b5e;
+    --upbg:#10301f; --downbg:#3a1714; --best:#3a3010; --bestline:#d4a800; --warn:#f0b35a; --warnbg:#3a2a10;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220; --card:#121b2e; --ink:#e6edf7; --muted:#93a3b8; --line:#22304a;
+  --brand:#0a1a33; --brand2:#12284d; --accent:#5aa2ff; --up:#34c77b; --down:#ff6b5e;
+  --upbg:#10301f; --downbg:#3a1714; --best:#3a3010; --bestline:#d4a800; --warn:#f0b35a; --warnbg:#3a2a10;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px}
+.num,td.n,th.n{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.mono{font-family:"IBM Plex Mono",monospace}
+header{background:linear-gradient(120deg,var(--brand),var(--brand2));color:#fff;padding:14px 16px}
+.hwrap{max-width:1280px;margin:0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-weight:700;letter-spacing:.08em;font-size:18px}
+.logo small{display:block;font-weight:400;letter-spacing:.02em;font-size:11px;opacity:.75}
+.hright{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:12px;opacity:.95;flex-wrap:wrap}
+.btn{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:12px}
+.btn:hover{background:rgba(255,255,255,.18)}
+.dot{width:8px;height:8px;border-radius:50%;background:#7dd3a0;display:inline-block;margin-right:6px}
+.dot.load{background:#ffd166;animation:p 1s infinite}.dot.err{background:#ff6b5e}
+@keyframes p{50%{opacity:.3}}
+main{max-width:1280px;margin:0 auto;padding:16px}
+.ticker{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-size:20px;font-weight:600;margin-top:2px}
+.kpi .s{font-size:11px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tab{background:none;border:none;border-bottom:3px solid transparent;padding:10px 12px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab.on{color:var(--accent);border-color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 4px}
+.card p.sub{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.45}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+input[type=search],input[type=number],select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit}
+input[type=search]{min-width:180px;flex:1;max-width:280px}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--bg);position:sticky;top:0;cursor:pointer;user-select:none;text-align:left;white-space:nowrap}
+th.n{text-align:right}
+th .ar{opacity:.6;margin-left:3px}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.up{color:var(--up)}.down{color:var(--down)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.up{background:var(--upbg)}.pill.down{background:var(--downbg)}
+.pill.warn{background:var(--warnbg);color:var(--warn)}
+tr.best td{background:var(--best)}
+tr.dim td{opacity:.5}
+.tag{font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--bestline);color:#1a1300;margin-left:6px;vertical-align:middle}
+.star{cursor:pointer;color:var(--muted);font-size:15px;background:none;border:none;padding:0}
+.star.on{color:#e0a800}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.best-box{border:1px solid var(--bestline);background:var(--best);border-radius:10px;padding:12px}
+.best-box .l{font-size:12px;color:var(--muted)}
+.best-box .v{font-size:22px;font-weight:700;margin:2px 0}
+.calc{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.calc input{width:160px}
+.note{font-size:12px;color:var(--muted);line-height:1.5}
+.alert{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:12px;display:none}
+.sbar{display:flex;align-items:center;gap:8px;min-width:120px}
+.sbar i{display:block;height:7px;border-radius:4px;background:var(--line);flex:1;position:relative;overflow:hidden}
+.sbar i b{position:absolute;inset:0 auto 0 0;border-radius:4px}
+.sbar span{font-weight:700;min-width:26px;text-align:right}
+.setup{font-size:11.5px;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);white-space:nowrap;font-weight:600}
+tr[data-t]{cursor:pointer}
+.ced-ok{font-size:11px;font-weight:600;color:var(--up)}
+.tmap{position:relative;width:100%;height:680px;background:#262931;border-radius:10px;overflow:hidden;user-select:none}
+@media (max-width:760px){.tmap{height:1100px}}
+.tsec{position:absolute;border:1px solid #262931;box-sizing:border-box}
+.tsec>span{position:absolute;left:0;right:0;top:0;height:16px;line-height:16px;padding:0 5px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#d7dbe3;background:#262931;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc{position:absolute;box-sizing:border-box;border:1px solid #262931;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;cursor:pointer;overflow:hidden;text-align:center;line-height:1.1;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.tc:hover{border:2px solid #f5d76e;z-index:2}
+.tc b{font-weight:700}
+.tmtip{position:fixed;z-index:60;background:#14171e;color:#fff;border:1px solid #3a3f4b;border-radius:8px;padding:8px 10px;font-size:12.5px;pointer-events:none;min-width:170px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.tmtip.hide{display:none}
+.vd{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.vd-Comprar{background:#0f9d58;color:#fff}
+.vd-Comprar-en-partes{background:var(--upbg);color:var(--up);border:1px solid var(--up)}
+.vd-Vigilar{background:color-mix(in srgb,#1d7af3 14%,transparent);color:#1d7af3}
+.vd-Mantener{background:var(--warnbg);color:var(--warn)}
+.vd-Evitar{background:var(--downbg);color:var(--down)}
+.vd-new{background:#e0a800;color:#1a1300;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:4px;margin-left:5px;vertical-align:middle}
+.verdict-box{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:12px 0 4px}
+.verdict-box .vd{font-size:14px;padding:5px 12px}
+.buy-new{border:1px solid #e0a800;background:var(--best);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px}
+.lensbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+.lens-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lens-g{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+@media (max-width:640px){.lens-g{grid-template-columns:1fr}}
+.lens b{display:block;font-size:14px;margin:2px 0}
+.et-g{display:grid;grid-template-columns:repeat(3,1fr);gap:4px 12px;margin-top:8px;font-size:13px}
+@media (max-width:640px){.et-g{grid-template-columns:1fr}}
+.setup.s-up{background:var(--upbg);color:var(--up)}
+.setup.s-warn{background:var(--warnbg);color:var(--warn)}
+.setup.s-info{background:color-mix(in srgb,#8a5cf6 14%,transparent);color:#7c4ddb}
+.kpi.us .l::before{content:"EE.UU. · ";opacity:.7}
+.lights{display:inline-flex;gap:3px;align-items:center}
+.lights i{width:11px;height:11px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+.l2{background:#0f9d58}.l1{background:#e0a800}.l0{background:#d93025}.lnull{background:var(--line)}
+.alert-tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--warnbg);color:var(--warn);margin:2px 4px 0 0;white-space:nowrap}
+.semaf{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+@media (max-width:600px){.semaf{grid-template-columns:repeat(2,1fr)}}
+.semaf div{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12px;display:flex;align-items:center;gap:8px}
+.semaf i{width:14px;height:14px;border-radius:50%;flex:none}
+.mm-wrap{display:grid;grid-template-columns:1fr 250px;gap:14px;align-items:start}
+@media (max-width:860px){.mm-wrap{grid-template-columns:1fr}}
+.mm-side{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);font-size:13px;min-height:120px}
+.mm-side.on{border-color:var(--accent)}
+.mm-empty{color:var(--muted);line-height:1.5}
+.mm-empty b{color:var(--ink)}
+.mm-h{display:flex;align-items:center;gap:6px;min-width:0}
+.mm-h b{font-size:16px}
+.mm-date{color:var(--muted);font-size:12px;margin-top:6px}
+.mm-zone{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:999px;font-weight:700;font-size:13px;transition:background .25s,color .25s}
+.secgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:4px 0 14px}
+.sc{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);cursor:pointer;text-align:left;font:inherit;color:var(--ink)}
+.sc:hover{border-color:var(--accent)}
+.sc .top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.sc .nm{font-weight:700;font-size:13px}
+.sc .tk{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+.sc .ln{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:5px}
+.sc .ln b{color:var(--ink);font-weight:600}
+.sc.mkt{border-style:dashed}
+.fase{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.fase.Liderando{background:var(--upbg);color:var(--up)}
+.fase.Mejorando{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+.fase.Perdiendo{background:var(--warnbg);color:var(--warn)}
+.fase.Rezagado{background:var(--downbg);color:var(--down)}
+.tmtip .row{display:flex;justify-content:space-between;gap:12px}
+.hsec h4{margin:0 0 5px;font-size:12px;color:var(--muted);font-weight:600}
+.hsec h4 b{color:var(--ink)}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:3px}
+.hc{border-radius:5px;padding:5px 3px;text-align:center;cursor:pointer;color:#fff;font-size:11px;line-height:1.25;border:none;font-family:inherit}
+.hc b{display:block;font-size:11.5px}
+.hc:hover{outline:2px solid var(--ink)}
+.modal{position:fixed;inset:0;background:rgba(5,12,25,.55);z-index:50;display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;padding:24px 12px}
+.modal.hide{display:none}
+.sheet{background:var(--card);color:var(--ink);border-radius:16px;max-width:980px;width:100%;padding:20px;position:relative;border:1px solid var(--line)}
+.close{position:absolute;top:12px;right:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px}
+.mhead{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;padding-right:40px}
+.mhead h3{margin:0;font-size:22px}
+.mhead .nm{color:var(--muted);font-size:13px;margin-top:2px}
+.bigscore{margin-left:auto;text-align:center;border-radius:12px;padding:8px 14px;color:#fff;min-width:96px}
+.bigscore b{display:block;font-size:30px;line-height:1}
+.bigscore small{font-size:11px;opacity:.9}
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 18px;margin:14px 0}
+.pillars .l{font-size:11.5px;color:var(--muted);margin-bottom:3px}
+.lists{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:14px 0}
+@media (max-width:820px){.lists{grid-template-columns:1fr}}
+.lists h4{margin:0 0 6px;font-size:13px}
+.lists ul{margin:0;padding-left:18px;line-height:1.5;font-size:13px}
+.lists li{margin-bottom:4px}
+.lists .pro h4{color:var(--up)}.lists .con h4{color:var(--warn)}.lists .gro h4{color:var(--accent)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 18px;font-size:13px}
+.kv div{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:4px 0;gap:8px}
+.kv span{color:var(--muted)}
+.chart{width:100%;height:auto;display:block;margin-top:6px}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.cedbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:12px;font-size:13px;background:var(--bg)}
+footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;color:var(--muted);line-height:1.55}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <div class="logo">PROSPEI <small>Control interno · ¿Funcionan las señales del monitor?</small></div>
+    <div class="hright">
+      <a class="btn" href="/" style="text-decoration:none">← Volver al monitor</a>
+      <button class="btn" id="theme">◐ Tema</button>
+    </div>
+  </div>
+</header>
+<main>
+  <!-- TRACK RÉCORD -->
+  <section id="t-bt">
+    <div class="card">
+      <h2>Track récord de "Comprar hoy"</h2>
+      <p class="sub">Cada día de los últimos 4 años, en las 3 empresas de mayor capitalización de cada sector del S&amp;P 500, se reconstruyó la señal con la información que existía ese día y se midió qué pasó después. Una señal cuenta una sola vez: para contar otra en la misma acción tienen que pasar 20 ruedas sin señal. Se compra al cierre del día siguiente.</p>
+      <div id="bt-body"><p class="note">Cargando…</p></div>
+    </div>
+    <div class="card" id="bt-ep-card" hidden>
+      <h2>Todas las señales</h2>
+      <p class="sub">Variante A. La marca <b>F</b> indica que además pasaba el filtro de fundamentos (variante B). Las señales de los últimos meses todavía no tienen resultado a 6 o 12 meses.</p>
+      <div class="bar"><button class="chip on" data-btf="all">Todas</button><button class="chip" data-btf="B">Solo con fundamentos (B)</button><select id="bt-sec" class="chip"><option value="">Todos los sectores</option></select></div>
+      <div class="tw"><table id="tb-bt"></table></div>
+      <p class="note" style="margin-top:8px" id="bt-more"></p>
+    </div>
+  </section>
+</main>
+<script>
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+function store(k,v){try{if(v===undefined){const r=localStorage.getItem('prospei_'+k);return r?JSON.parse(r):null}localStorage.setItem('prospei_'+k,JSON.stringify(v))}catch(e){return null}}
+(function(){const t=store('theme');if(t)document.documentElement.setAttribute('data-theme',t)})();
+$('#theme').onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);store('theme',n)};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(n,d=2)=>(n==null||!isFinite(n))?'—':n.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct=(x,d=2)=>(x==null||!isFinite(x))?'—':(x>0?'+':'')+fmt(x*100,d)+'%';
+const cls=x=>x==null?'':(x>0?'up':(x<0?'down':''));
+const S={sort:{bt:['date',-1]}};
+const SETUPC={'Giro temprano':'info','Golden Cross':'up','Golden Cross en formación':'info','Corrección con señal de rebote':'up','Ruptura de máximos':'up','Corrección en curso':'warn','Recuperación':'info'};
+const SETUPT={'Corrección con señal de rebote':'Tendencia alcista confirmada, cayó 5-20% desde su último pico y ya muestra rebote (recuperó la media de 20 con MACD o RSI girando al alza)',
+ 'Corrección en curso':'Tendencia alcista confirmada, cayó 5-20% desde su último pico pero todavía sin señal de rebote: vigilar',
+ 'Recuperación':'Cruzó arriba de la media de 200 hace poco, después de estar claramente debajo: falta confirmar',
+ 'Ruptura de máximos':'Tendencia alcista, a menos de 4% del máximo de 52 semanas y con volumen alto',
+ 'Golden Cross':'La media de 50 cruzó por encima de la de 200 en las últimas 20 ruedas y el precio está arriba de la de 200',
+ 'Giro temprano':'Después de una caída, se cumplen 4 o más de 6 señales anticipadas de giro (mínimo más alto, divergencia del RSI, acumulación, ruptura del último máximo, impulso positivo, fuerza relativa). Llegan antes que el Golden Cross pero fallan más',
+ 'Golden Cross en formación':'Fuera de tendencia alcista, pero la media de 50 está a menos de 2% de la de 200 y acercándose: vigilar',
+ 'Tendencia alcista':'Tendencia alcista con la media de 50 arriba de la de 200',
+ 'Sobrevendida con buenos fundamentos':'Fuera de tendencia alcista, RSI debajo de 35 y fundamentos sólidos',
+ 'Giro técnico':'El MACD cruzó al alza en los últimos días','Valor':'Sin señal técnica particular'};
+const setupChip=t=>`<span class="setup ${SETUPC[t]?'s-'+SETUPC[t]:''}" title="${esc(SETUPT[t]||'')}">${esc(t)}</span>`;
+function table(el,key,cols,rows,rowCls,limit){
+  const [sk,sd]=S.sort[key];
+  const r=rows.slice().sort((a,b)=>{const x=a[sk],y=b[sk];const xa=(x==null||(typeof x==='number'&&!isFinite(x))),ya=(y==null||(typeof y==='number'&&!isFinite(y)));if(xa&&ya)return 0;if(xa)return 1;if(ya)return -1;return (typeof x==='string'?x.localeCompare(y):x-y)*sd}).slice(0,limit||Infinity);
+  let h='<thead><tr>'+cols.map(c=>`<th class="${c.n?'n':''}" data-k="${c.k}">${c.h}${c.k===sk?`<span class="ar">${sd>0?'▲':'▼'}</span>`:''}</th>`).join('')+'</tr></thead><tbody>';
+  if(!r.length)h+=`<tr><td colspan="${cols.length}" class="note" style="text-align:center;padding:20px">Sin datos para mostrar.</td></tr>`;
+  r.forEach(o=>{h+='<tr>'+cols.map(c=>`<td class="${c.n?'n':''}">${c.f?c.f(o):(o[c.k]??'—')}</td>`).join('')+'</tr>'});
+  el.innerHTML=h+'</tbody>';
+  el.querySelectorAll('th[data-k]').forEach(th=>th.onclick=()=>{const k=th.dataset.k;const cur=S.sort[key];S.sort[key]=[k,cur[0]===k?-cur[1]:(cols.find(c=>c.k===k).n?-1:1)];renderBTEp()});
+}
+S.bt=null;S.btf='all';
+async function loadBT(){
+  if(S.bt){renderBT();return}
+  try{const r=await fetch('backtest.json?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;S.bt=await r.json();renderBT()}
+  catch(e){$('#bt-body').innerHTML=`<div class="cedbox">Todavía no hay track récord. En GitHub entrá a <b>Actions → Track record PROSPEI → Run workflow</b>. Tarda unos 10 minutos y deja el archivo <b>backtest.json</b>; después recargá esta página.</div>`}
+}
+const P0=x=>x==null||!isFinite(x)?'—':fmt(x*100,0)+'%';
+function btVerdict(s,goal){if(!s||!s.n)return['','Sin datos'];const ok=s.win>=goal;return[ok?'up':'down',ok?'Cumple la meta':'No llega a la meta']}
+function renderBT(){
+  const B=S.bt,A=B.variants.A,Bv=B.variants.B,base=B.base,g=B.goal;
+  const tile=(lbl,v,meta,good)=>`<div class="kpi"><div class="l">${lbl}</div><div class="v ${good==null?'':good?'up':'down'}">${v}</div><div class="s">${meta}</div></div>`;
+  const vA=btVerdict(A['6m'],g),vB=btVerdict(Bv['6m'],g);
+  const row=(name,v)=>`<tr><td><b>${name}</b></td><td class="n">${v['6m'].n||0}</td>${['3m','6m','12m'].map(h=>`<td class="n ${v[h].n?(v[h].win>=g?'up':''):''}">${P0(v[h].win)}</td>`).join('')}<td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n ${cls(v['6m'].med)}">${pct(v['6m'].med,1)}</td><td class="n down">${pct(v['6m'].p10,1)}</td><td class="n">${P0(v.ts.target)}</td></tr>`;
+  const grp=(obj,title)=>`<div style="min-width:0"><h4 style="margin:16px 0 6px">${title}</h4><div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 6m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Positivas 12m</th></tr></thead><tbody>${Object.entries(obj).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n ${v['6m'].n&&v['6m'].win>=g?'up':''}">${P0(v['6m'].win)}${v['6m'].n?` <span class="note">(${v['6m'].n})</span>`:''}</td><td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n">${P0(v['12m'].win)}</td></tr>`).join('')}</tbody></table></div></div>`;
+  $('#bt-body').innerHTML=`
+    <div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:6px 0 14px">
+      ${tile('A · técnica · 6 meses',P0(A['6m'].win),`positivas en ${A['6m'].n||0} señales · ${vA[1]} (${P0(g)})`,A['6m'].n?A['6m'].win>=g:null)}
+      ${tile('B · técnica + fundamentos · 6 meses',P0(Bv['6m'].win),`positivas en ${Bv['6m'].n||0} señales · ${vB[1]} (${P0(g)})`,Bv['6m'].n?Bv['6m'].win>=g:null)}
+      ${tile('Referencia · cualquier día',P0(base['6m'].win),'positivas a 6 meses comprando sin señal',null)}
+      ${tile('A · le ganó al S&P 500',P0(A['6m'].beat),'a 6 meses, contra comprar SPY el mismo día',A['6m'].beat!=null?A['6m'].beat>=0.5:null)}
+    </div>
+    <p class="note">Período ${esc(B.period.from)} a ${esc(B.period.to)} · actualizado ${esc(B.generated)} · meta: ${P0(g)} de compras exitosas. La señal suma valor si supera a la <b>referencia</b>: en un mercado alcista casi cualquier compra termina positiva.</p>
+    <div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 3m</th><th class="n">Positivas 6m</th><th class="n">Positivas 12m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Mediana 6m</th><th class="n">Peor 10% 6m</th><th class="n">+${P0(B.target)} antes que ${P0(B.stop)}</th></tr></thead>
+      <tbody>${row('A · técnica del monitor',A)}${row('B · A + fundamentos',Bv)}${row('Referencia: cualquier día',base)}</tbody></table></div>
+    <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Qué es cada variante y qué no se pudo reconstruir</summary>
+      <ul class="note" style="padding-left:18px"><li><b>A:</b> ${esc(A.label)}.</li><li><b>B:</b> ${esc(Bv.label)}. Fundamentos de los balances presentados a la SEC hasta ese día.</li>
+      <li>El precio objetivo de los analistas, la ganancia esperada y el valor justo <b>no tienen historia gratuita</b>: por eso el veredicto completo (con recorrido a valor justo ≥ 10%) no se puede reproducir hacia atrás. Para medirlo exacto, el monitor guarda desde ahora las señales de cada día.</li>
+      <li>Se eligieron las empresas más grandes de <b>hoy</b>: son las que mejor les fue, lo que favorece los resultados (sesgo de supervivencia). Comparar contra la referencia corrige buena parte de ese sesgo.</li>
+      <li><b>+${P0(B.target)} antes que ${P0(B.stop)}</b>: porcentaje de señales que tocaron la ganancia objetivo antes que el stop en un plazo de ${B.ts_days} ruedas.</li></ul></details>
+    <div class="grid2">${grp(B.by_setup.A,'Por tipo de señal (A)')}${grp(B.by_year.A,'Por año (A)')}</div>
+    ${grp(B.by_sector.A,'Por sector (A)')}`;
+  const sel=$('#bt-sec');sel.innerHTML='<option value="">Todos los sectores</option>'+Object.keys(B.by_sector.A).map(k=>`<option>${esc(k)}</option>`).join('');
+  sel.onchange=renderBTEp;
+  $$('[data-btf]').forEach(b=>b.onclick=()=>{S.btf=b.dataset.btf;$$('[data-btf]').forEach(x=>x.classList.toggle('on',x===b));renderBTEp()});
+  $('#bt-ep-card').hidden=false;renderBTEp();
+}
+function renderBTEp(){
+  const B=S.bt;if(!B)return;const bs=new Set(B.b_set||[]),sec=$('#bt-sec').value;
+  let rows=B.episodes.map(e=>({...e,fb:bs.has(e.t+'|'+e.date),vs6:e['6m']!=null&&e.spy_6m!=null?e['6m']-e.spy_6m:null}));
+  if(S.btf==='B')rows=rows.filter(e=>e.fb);if(sec)rows=rows.filter(e=>e.sector===sec);
+  const r=v=>`<span class="${cls(v)}">${pct(v,1)}</span>`;
+  table($('#tb-bt'),'bt',[
+    {k:'date',h:'Fecha',f:o=>esc(o.date)},
+    {k:'t',h:'Papel',f:o=>`<b>${esc(o.t)}</b>${o.fb?' <span class="fase" style="background:var(--upbg);color:var(--up)">F</span>':''} <span class="note">${esc(o.sector)}</span>`},
+    {k:'setup',h:'Señal',f:o=>setupChip(o.setup)},
+    {k:'at',h:'Técnico',n:1},
+    {k:'p',h:'Precio',n:1,f:o=>'US$ '+fmt(o.p)},
+    {k:'3m',h:'3 meses',n:1,f:o=>r(o['3m'])},
+    {k:'6m',h:'6 meses',n:1,f:o=>r(o['6m'])},
+    {k:'12m',h:'12 meses',n:1,f:o=>r(o['12m'])},
+    {k:'vs6',h:'vs S&amp;P 6m',n:1,f:o=>r(o.vs6)},
+    {k:'ts',h:'Objetivo / stop',f:o=>o.ts==='objetivo'?'<span class="up">✓ objetivo</span>':o.ts==='stop'?'<span class="down">✗ stop</span>':o.ts==='abierta'?'<span class="note">sin tocar</span>':'<span class="note">en curso</span>'},
+  ],rows,null,300);
+  $('#bt-more').textContent=rows.length>300?`Se muestran 300 de ${rows.length} señales.`:`${rows.length} señales.`;
+}
+
+loadBT();
+</script>
+</body>
+</html>
