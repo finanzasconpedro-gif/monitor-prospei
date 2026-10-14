@@ -29,7 +29,7 @@ jobs:
         run: |
           git config user.name "screener-bot"
           git config user.email "screener-bot@users.noreply.github.com"
-          git add data.json signals.json
+          git add data.json signals.json hist.json
           git diff --cached --quiet && echo "Sin cambios" && exit 0
           git commit -m "Actualiza screener $(date -u +'%Y-%m-%d')"
           git push
