@@ -1,0 +1,36 @@
+name: Track record PROSPEI
+
+on:
+  workflow_dispatch:            # boton "Run workflow" para correrlo a mano
+  schedule:
+    - cron: "0 12 1 * *"        # ademas se actualiza solo el dia 1 de cada mes
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar librerias
+        run: pip install yfinance pandas numpy requests lxml
+
+      - name: Correr track record
+        run: python backtest.py
+
+      - name: Guardar backtest.json
+        run: |
+          git config user.name "screener-bot"
+          git config user.email "screener-bot@users.noreply.github.com"
+          git add backtest.json
+          git diff --cached --quiet && echo "Sin cambios" && exit 0
+          git commit -m "Actualiza track record $(date -u +'%Y-%m-%d')"
+          git pull --rebase
+          git push
