@@ -692,7 +692,7 @@ function renderBuy(){
   $('#verdict-count').innerHTML=['Comprar','Comprar en partes','Vigilar','Mantener','Evitar'].map(v=>`<span class="${vdCls(v)}" style="font-size:11px">${v} ${cnt[v]||0}</span>`).join('');
   const nw=all.filter(o=>o.verdict_new);
   const prevBuy=all.filter(o=>o.verdict_prev==='Comprar'&&o.verdict!=='Comprar');
-  $('#buy-new').innerHTML=(nw.length||prevBuy.length)?`<div class="buy-new">${nw.length?`<b>Novedades del día:</b> pasaron a Comprar ${nw.map(o=>`<a href="#" data-open="${esc(o.t)}"><b>${esc(o.t)}</b></a>`).join(', ')}.`:''}${prevBuy.length?` ${nw.length?'<br>':''}<b>Dejaron de ser Comprar:</b> ${prevBuy.map(o=>`<a href="#" data-open="${esc(o.t)}">${esc(o.t)}</a> (ahora ${esc(o.verdict)})`).join(', ')}.`:''}</div>`:'';
+  $('#buy-new').innerHTML=(nw.length||prevBuy.length)?`<div class="buy-new">${nw.length?`<b>Novedades del día${S.scr.verdict_base_date?' <span class="note">(vs. '+esc(S.scr.verdict_base_date.split('-').reverse().join('/'))+')</span>':''}:</b> pasaron a Comprar ${nw.map(o=>`<a href="#" data-open="${esc(o.t)}"><b>${esc(o.t)}</b></a>`).join(', ')}.`:''}${prevBuy.length?` ${nw.length?'<br>':''}<b>Dejaron de ser Comprar:</b> ${prevBuy.map(o=>`<a href="#" data-open="${esc(o.t)}">${esc(o.t)}</a> (ahora ${esc(o.verdict)})`).join(', ')}.`:''}</div>`:'';
   $('#buy-new').querySelectorAll('[data-open]').forEach(a=>a.onclick=e=>{e.preventDefault();openDetail(a.dataset.open)});
   const cols=[
     {k:'fav',h:'',f:o=>star(o.t)},
