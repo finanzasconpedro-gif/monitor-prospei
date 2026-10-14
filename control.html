@@ -202,7 +202,8 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   <section id="t-bt">
     <div class="card">
       <h2>Track récord de "Comprar hoy"</h2>
-      <p class="sub">Cada día de los últimos 4 años, en las 3 empresas de mayor capitalización de cada sector del S&amp;P 500, se reconstruyó la señal con la información que existía ese día y se midió qué pasó después. Una señal cuenta una sola vez: para contar otra en la misma acción tienen que pasar 20 ruedas sin señal. Se compra al cierre del día siguiente.</p>
+      <p class="sub">Cada día de los últimos 4 años se reconstruyó la señal con la información que existía ese día y se midió qué pasó después. Se prueba en dos grupos: las 3 más grandes de cada sector (las ganadoras de hoy) y una muestra de 100 acciones al azar del S&amp;P 500, que incluye las que anduvieron mal y es la prueba más exigente. Una señal cuenta una sola vez: para contar otra en la misma acción tienen que pasar 20 ruedas sin señal. Se compra al cierre del día siguiente.</p>
+      <div class="bar" id="bt-uni"></div>
       <div id="bt-body"><p class="note">Cargando…</p></div>
     </div>
     <div class="card" id="bt-ep-card" hidden>
@@ -253,13 +254,19 @@ async function loadBT(){
 }
 const P0=x=>x==null||!isFinite(x)?'—':fmt(x*100,0)+'%';
 function btVerdict(s,goal){if(!s||!s.n)return['','Sin datos'];const ok=s.win>=goal;return[ok?'up':'down',ok?'Cumple la meta':'No llega a la meta']}
+S.btu='broad';
 function renderBT(){
-  const B=S.bt,A=B.variants.A,Bv=B.variants.B,base=B.base,g=B.goal;
+  const B0=S.bt,US=B0.universes||{top:B0};if(!US[S.btu])S.btu=Object.keys(US)[0];
+  const B={...B0,...US[S.btu]};S.btc=B;
+  $('#bt-uni').innerHTML=Object.entries(US).map(([k,u])=>`<button class="chip ${k===S.btu?'on':''}" data-btu="${k}">${esc(u.label||'Las 3 más grandes de cada sector')}${u.n?` (${u.n})`:''}</button>`).join('');
+  $$('[data-btu]').forEach(b=>b.onclick=()=>{S.btu=b.dataset.btu;renderBT()});
+  const secWarn=B0.sec&&B0.sec.ok<B0.sec.total*0.8?`<div class="cedbox" style="margin-bottom:10px">⚠️ Solo se pudieron bajar los balances de ${B0.sec.ok} de ${B0.sec.total} empresas de la SEC${B0.sec.error?': '+esc(B0.sec.error):''}. La variante B queda incompleta.</div>`:'';
+  const A=B.variants.A,Bv=B.variants.B,base=B.base,g=B.goal;
   const tile=(lbl,v,meta,good)=>`<div class="kpi"><div class="l">${lbl}</div><div class="v ${good==null?'':good?'up':'down'}">${v}</div><div class="s">${meta}</div></div>`;
   const vA=btVerdict(A['6m'],g),vB=btVerdict(Bv['6m'],g);
   const row=(name,v)=>`<tr><td><b>${name}</b></td><td class="n">${v['6m'].n||0}</td>${['3m','6m','12m'].map(h=>`<td class="n ${v[h].n?(v[h].win>=g?'up':''):''}">${P0(v[h].win)}</td>`).join('')}<td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n ${cls(v['6m'].med)}">${pct(v['6m'].med,1)}</td><td class="n down">${pct(v['6m'].p10,1)}</td><td class="n">${P0(v.ts.target)}</td></tr>`;
   const grp=(obj,title)=>`<div style="min-width:0"><h4 style="margin:16px 0 6px">${title}</h4><div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 6m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Positivas 12m</th></tr></thead><tbody>${Object.entries(obj).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n ${v['6m'].n&&v['6m'].win>=g?'up':''}">${P0(v['6m'].win)}${v['6m'].n?` <span class="note">(${v['6m'].n})</span>`:''}</td><td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n">${P0(v['12m'].win)}</td></tr>`).join('')}</tbody></table></div></div>`;
-  $('#bt-body').innerHTML=`
+  $('#bt-body').innerHTML=secWarn+`
     <div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:6px 0 14px">
       ${tile('A · técnica · 6 meses',P0(A['6m'].win),`positivas en ${A['6m'].n||0} señales · ${vA[1]} (${P0(g)})`,A['6m'].n?A['6m'].win>=g:null)}
       ${tile('B · técnica + fundamentos · 6 meses',P0(Bv['6m'].win),`positivas en ${Bv['6m'].n||0} señales · ${vB[1]} (${P0(g)})`,Bv['6m'].n?Bv['6m'].win>=g:null)}
@@ -267,6 +274,7 @@ function renderBT(){
       ${tile('A · le ganó al S&P 500',P0(A['6m'].beat),'a 6 meses, contra comprar SPY el mismo día',A['6m'].beat!=null?A['6m'].beat>=0.5:null)}
     </div>
     <p class="note">Período ${esc(B.period.from)} a ${esc(B.period.to)} · actualizado ${esc(B.generated)} · meta: ${P0(g)} de compras exitosas. La señal suma valor si supera a la <b>referencia</b>: en un mercado alcista casi cualquier compra termina positiva.</p>
+    ${A['6m'].n&&base['6m'].n?`<div class="cedbox" style="margin:8px 0 12px"><b>Ventaja de la señal a 6 meses:</b> ${(A['6m'].win-base['6m'].win)>=0?'+':''}${fmt((A['6m'].win-base['6m'].win)*100,0)} puntos en positivas (${P0(A['6m'].win)} vs ${P0(base['6m'].win)}) · ${(A['6m'].avg-base['6m'].avg)>=0?'+':''}${fmt((A['6m'].avg-base['6m'].avg)*100,1)} puntos de rendimiento promedio${Bv['6m'].n?` · con fundamentos (B): ${(Bv['6m'].win-base['6m'].win)>=0?'+':''}${fmt((Bv['6m'].win-base['6m'].win)*100,0)} puntos`:''}.</div>`:''}
     <div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 3m</th><th class="n">Positivas 6m</th><th class="n">Positivas 12m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Mediana 6m</th><th class="n">Peor 10% 6m</th><th class="n">+${P0(B.target)} antes que ${P0(B.stop)}</th></tr></thead>
       <tbody>${row('A · técnica del monitor',A)}${row('B · A + fundamentos',Bv)}${row('Referencia: cualquier día',base)}</tbody></table></div>
     <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Qué es cada variante y qué no se pudo reconstruir</summary>
@@ -282,7 +290,7 @@ function renderBT(){
   $('#bt-ep-card').hidden=false;renderBTEp();
 }
 function renderBTEp(){
-  const B=S.bt;if(!B)return;const bs=new Set(B.b_set||[]),sec=$('#bt-sec').value;
+  const B=S.btc;if(!B)return;const bs=new Set(B.b_set||[]),sec=$('#bt-sec').value;
   let rows=B.episodes.map(e=>({...e,fb:bs.has(e.t+'|'+e.date),vs6:e['6m']!=null&&e.spy_6m!=null?e['6m']-e.spy_6m:null}));
   if(S.btf==='B')rows=rows.filter(e=>e.fb);if(sec)rows=rows.filter(e=>e.sector===sec);
   const r=v=>`<span class="${cls(v)}">${pct(v,1)}</span>`;
