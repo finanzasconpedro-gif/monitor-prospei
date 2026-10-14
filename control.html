@@ -199,6 +199,14 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
 </header>
 <main>
   <!-- TRACK RÉCORD -->
+  <section id="t-live">
+    <div class="card">
+      <h2>Señales reales del monitor</h2>
+      <p class="sub">Cada "Comprar" y "Comprar en partes" que dio el monitor, con el precio de ese día, comparado contra el precio de hoy y contra el S&amp;P 500 en el mismo período. Acá sí está la señal completa (con valor justo y analistas). Una misma acción vuelve a contar recién 30 días después.</p>
+      <div id="live-body"><p class="note">Cargando…</p></div>
+    </div>
+  </section>
+
   <section id="t-bt">
     <div class="card">
       <h2>Track récord de "Comprar hoy"</h2>
@@ -254,7 +262,26 @@ async function loadBT(){
 }
 const P0=x=>x==null||!isFinite(x)?'—':fmt(x*100,0)+'%';
 function btVerdict(s,goal){if(!s||!s.n)return['','Sin datos'];const ok=s.win>=goal;return[ok?'up':'down',ok?'Cumple la meta':'No llega a la meta']}
+async function loadLive(){
+  const el=$('#live-body');
+  try{
+    const [a,b]=await Promise.all([fetch('signals.json?v='+Date.now(),{cache:'no-store'}),fetch('data.json?v='+Date.now(),{cache:'no-store'})]);
+    if(!a.ok)throw 0;const L=await a.json(),D=b.ok?await b.json():null;
+    if(!L.length){el.innerHTML='<p class="note">Todavía no hay señales registradas. Se registran desde la próxima corrida del screener.</p>';return}
+    const now={};(D&&D.rows||[]).forEach(r=>now[r.t]=r.p);const spyNow=D&&D.spy&&D.spy.p;const today=new Date();
+    const rows=L.map(e=>{const pn=now[e.t],ret=pn&&e.p?pn/e.p-1:null,sr=spyNow&&e.spy?spyNow/e.spy-1:null;
+      return {...e,pn,ret,sr,vs:ret!=null&&sr!=null?ret-sr:null,days:Math.round((today-new Date(e.date+'T12:00:00'))/864e5)}});
+    const sum=v=>{const x=rows.filter(r=>r.verdict===v&&r.ret!=null);if(!x.length)return null;
+      return {n:x.length,win:x.filter(r=>r.ret>0).length/x.length,beat:x.filter(r=>r.vs>0).length/x.length,avg:x.reduce((a,r)=>a+r.ret,0)/x.length,vs:x.reduce((a,r)=>a+(r.vs||0),0)/x.length,d:Math.round(x.reduce((a,r)=>a+r.days,0)/x.length)}};
+    const tile=(v)=>{const m=sum(v);return `<div class="kpi"><div class="l">${v}</div><div class="v ${m?(m.vs>0?'up':'down'):''}">${m?pct(m.vs,1):'—'}</div><div class="s">${m?`vs. S&amp;P · ${m.n} señales · positivas ${P0(m.win)} · le ganaron ${P0(m.beat)} · promedio ${pct(m.avg,1)} · antigüedad media ${m.d} días`:'sin señales todavía'}</div></div>`};
+    el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin:6px 0 10px">${tile('Comprar')}${tile('Comprar en partes')}</div>
+      <p class="note">Desde ${esc(L.reduce((a,e)=>e.date<a?e.date:a,L[0].date).split('-').reverse().join('/'))}. Con menos de 3 meses de antigüedad los resultados son ruido: hay que mirarlos a 6 y 12 meses.</p>
+      <div class="tw"><table><thead><tr><th>Fecha</th><th>Papel</th><th>Veredicto</th><th>Señal</th><th class="n">Precio entonces</th><th class="n">Hoy</th><th class="n">Resultado</th><th class="n">S&amp;P mismo período</th><th class="n">Diferencia</th><th class="n">Valor justo entonces</th></tr></thead><tbody>
+      ${rows.sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`<tr><td>${esc(r.date.split('-').reverse().join('/'))}</td><td><b>${esc(r.t)}</b> <span class="note">${esc(r.sector||'')}</span></td><td>${esc(r.verdict)}</td><td>${setupChip(r.setup)}</td><td class="n">US$ ${fmt(r.p)}</td><td class="n">${r.pn?'US$ '+fmt(r.pn):'—'}</td><td class="n ${cls(r.ret)}">${pct(r.ret,1)}</td><td class="n">${pct(r.sr,1)}</td><td class="n ${cls(r.vs)}">${pct(r.vs,1)}</td><td class="n">${r.fair?'US$ '+fmt(r.fair)+' <span class="note">('+pct(r.fair_up,0)+')</span>':'—'}</td></tr>`).join('')}</tbody></table></div>`;
+  }catch(e){el.innerHTML='<p class="note">Todavía no hay registro de señales. Se crea en la próxima corrida del screener (todos los días hábiles a las 18:35).</p>'}
+}
 S.btu='broad';
+const VSHORT={A:'técnica',B:'técnica + fundamentos',C:'sin Golden Cross',D:'sin Golden Cross + fundamentos'};
 function renderBT(){
   const B0=S.bt,US=B0.universes||{top:B0};if(!US[S.btu])S.btu=Object.keys(US)[0];
   const B={...B0,...US[S.btu]};S.btc=B;
@@ -263,22 +290,19 @@ function renderBT(){
   const secWarn=B0.sec&&B0.sec.ok<B0.sec.total*0.8?`<div class="cedbox" style="margin-bottom:10px">⚠️ Solo se pudieron bajar los balances de ${B0.sec.ok} de ${B0.sec.total} empresas de la SEC${B0.sec.error?': '+esc(B0.sec.error):''}. La variante B queda incompleta.</div>`:'';
   const A=B.variants.A,Bv=B.variants.B,base=B.base,g=B.goal;
   const tile=(lbl,v,meta,good)=>`<div class="kpi"><div class="l">${lbl}</div><div class="v ${good==null?'':good?'up':'down'}">${v}</div><div class="s">${meta}</div></div>`;
-  const vA=btVerdict(A['6m'],g),vB=btVerdict(Bv['6m'],g);
+  const V=B.variants,VK=['A','B','C','D'];
   const row=(name,v)=>`<tr><td><b>${name}</b></td><td class="n">${v['6m'].n||0}</td>${['3m','6m','12m'].map(h=>`<td class="n ${v[h].n?(v[h].win>=g?'up':''):''}">${P0(v[h].win)}</td>`).join('')}<td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n ${cls(v['6m'].med)}">${pct(v['6m'].med,1)}</td><td class="n down">${pct(v['6m'].p10,1)}</td><td class="n">${P0(v.ts.target)}</td></tr>`;
   const grp=(obj,title)=>`<div style="min-width:0"><h4 style="margin:16px 0 6px">${title}</h4><div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 6m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Positivas 12m</th></tr></thead><tbody>${Object.entries(obj).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n ${v['6m'].n&&v['6m'].win>=g?'up':''}">${P0(v['6m'].win)}${v['6m'].n?` <span class="note">(${v['6m'].n})</span>`:''}</td><td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n">${P0(v['12m'].win)}</td></tr>`).join('')}</tbody></table></div></div>`;
   $('#bt-body').innerHTML=secWarn+`
     <div class="kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:6px 0 14px">
-      ${tile('A · técnica · 6 meses',P0(A['6m'].win),`positivas en ${A['6m'].n||0} señales · ${vA[1]} (${P0(g)})`,A['6m'].n?A['6m'].win>=g:null)}
-      ${tile('B · técnica + fundamentos · 6 meses',P0(Bv['6m'].win),`positivas en ${Bv['6m'].n||0} señales · ${vB[1]} (${P0(g)})`,Bv['6m'].n?Bv['6m'].win>=g:null)}
-      ${tile('Referencia · cualquier día',P0(base['6m'].win),'positivas a 6 meses comprando sin señal',null)}
-      ${tile('A · le ganó al S&P 500',P0(A['6m'].beat),'a 6 meses, contra comprar SPY el mismo día',A['6m'].beat!=null?A['6m'].beat>=0.5:null)}
+      ${VK.filter(k=>V[k]).map(k=>{const v=V[k]['6m'];const e=v.n&&base['6m'].n?v.win-base['6m'].win:null;return tile(k+' · '+VSHORT[k],P0(v.win),`positivas a 6 meses en ${v.n||0} señales · ${e==null?'—':(e>=0?'+':'')+fmt(e*100,0)+' puntos vs. sin señal ('+P0(base['6m'].win)+')'}`,e==null?null:e>0)}).join('')}
     </div>
     <p class="note">Período ${esc(B.period.from)} a ${esc(B.period.to)} · actualizado ${esc(B.generated)} · meta: ${P0(g)} de compras exitosas. La señal suma valor si supera a la <b>referencia</b>: en un mercado alcista casi cualquier compra termina positiva.</p>
-    ${A['6m'].n&&base['6m'].n?`<div class="cedbox" style="margin:8px 0 12px"><b>Ventaja de la señal a 6 meses:</b> ${(A['6m'].win-base['6m'].win)>=0?'+':''}${fmt((A['6m'].win-base['6m'].win)*100,0)} puntos en positivas (${P0(A['6m'].win)} vs ${P0(base['6m'].win)}) · ${(A['6m'].avg-base['6m'].avg)>=0?'+':''}${fmt((A['6m'].avg-base['6m'].avg)*100,1)} puntos de rendimiento promedio${Bv['6m'].n?` · con fundamentos (B): ${(Bv['6m'].win-base['6m'].win)>=0?'+':''}${fmt((Bv['6m'].win-base['6m'].win)*100,0)} puntos`:''}.</div>`:''}
+    ${base['6m'].n?`<div class="cedbox" style="margin:8px 0 12px"><b>Ventaja frente a comprar sin señal, a 6 meses</b> (positivas · rendimiento promedio · peor 10%):<br>${VK.filter(k=>V[k]&&V[k]['6m'].n).map(k=>{const v=V[k]['6m'],b=base['6m'],d=(x,dd)=>(x>=0?'+':'')+fmt(x*100,dd);return `<b>${k}</b> ${d(v.win-b.win,0)} pts · ${d(v.avg-b.avg,1)} pts · ${d(v.p10-b.p10,1)} pts`}).join(' &nbsp;|&nbsp; ')}<br><span class="note">Positivo = mejor que comprar sin señal. En "peor 10%" positivo significa que las peores compras perdieron menos.</span></div>`:''}
     <div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 3m</th><th class="n">Positivas 6m</th><th class="n">Positivas 12m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Mediana 6m</th><th class="n">Peor 10% 6m</th><th class="n">+${P0(B.target)} antes que ${P0(B.stop)}</th></tr></thead>
-      <tbody>${row('A · técnica del monitor',A)}${row('B · A + fundamentos',Bv)}${row('Referencia: cualquier día',base)}</tbody></table></div>
+      <tbody>${VK.filter(k=>V[k]).map(k=>row(k+' · '+VSHORT[k],V[k])).join('')}${row('Referencia: cualquier día',base)}</tbody></table></div>
     <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Qué es cada variante y qué no se pudo reconstruir</summary>
-      <ul class="note" style="padding-left:18px"><li><b>A:</b> ${esc(A.label)}.</li><li><b>B:</b> ${esc(Bv.label)}. Fundamentos de los balances presentados a la SEC hasta ese día.</li>
+      <ul class="note" style="padding-left:18px"><li><b>A:</b> ${esc(A.label)}.</li><li><b>B:</b> ${esc(Bv.label)}.${V.C?`<li><b>C:</b> ${esc(V.C.label)}.</li><li><b>D:</b> ${esc(V.D.label)}.</li>`:''} Fundamentos de los balances presentados a la SEC hasta ese día.</li>
       <li>El precio objetivo de los analistas, la ganancia esperada y el valor justo <b>no tienen historia gratuita</b>: por eso el veredicto completo (con recorrido a valor justo ≥ 10%) no se puede reproducir hacia atrás. Para medirlo exacto, el monitor guarda desde ahora las señales de cada día.</li>
       <li>Se eligieron las empresas más grandes de <b>hoy</b>: son las que mejor les fue, lo que favorece los resultados (sesgo de supervivencia). Comparar contra la referencia corrige buena parte de ese sesgo.</li>
       <li><b>+${P0(B.target)} antes que ${P0(B.stop)}</b>: porcentaje de señales que tocaron la ganancia objetivo antes que el stop en un plazo de ${B.ts_days} ruedas.</li></ul></details>
@@ -309,7 +333,7 @@ function renderBTEp(){
   $('#bt-more').textContent=rows.length>300?`Se muestran 300 de ${rows.length} señales.`:`${rows.length} señales.`;
 }
 
-loadBT();
+loadBT();loadLive();
 </script>
 </body>
 </html>
