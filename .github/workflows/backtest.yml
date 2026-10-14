@@ -23,6 +23,8 @@ jobs:
         run: pip install yfinance pandas numpy requests lxml
 
       - name: Correr track record
+        env:
+          SEC_UA: ${{ secrets.SEC_UA }}
         run: python backtest.py
 
       - name: Guardar backtest.json
