@@ -199,6 +199,15 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
 </header>
 <main>
   <!-- TRACK RÉCORD -->
+  <section id="t-one">
+    <div class="card">
+      <h2>Probar una empresa</h2>
+      <p class="sub">Escribí un ticker del monitor (por ejemplo MU) para ver en qué momentos de los últimos 4 años hubiera dado la señal de compra y cómo le fue después.</p>
+      <div class="bar"><input id="one-q" list="one-list" placeholder="Ticker, ej. MU" autocomplete="off" style="font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);width:200px;text-transform:uppercase"><datalist id="one-list"></datalist><button class="chip on" id="one-go">Ver</button></div>
+      <div id="one-body"></div>
+    </div>
+  </section>
+
   <section id="t-live">
     <div class="card">
       <h2>Señales reales del monitor</h2>
@@ -280,6 +289,45 @@ async function loadLive(){
       ${rows.sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`<tr><td>${esc(r.date.split('-').reverse().join('/'))}</td><td><b>${esc(r.t)}</b> <span class="note">${esc(r.sector||'')}</span></td><td>${esc(r.verdict)}</td><td>${setupChip(r.setup)}</td><td class="n">US$ ${fmt(r.p)}</td><td class="n">${r.pn?'US$ '+fmt(r.pn):'—'}</td><td class="n ${cls(r.ret)}">${pct(r.ret,1)}</td><td class="n">${pct(r.sr,1)}</td><td class="n ${cls(r.vs)}">${pct(r.vs,1)}</td><td class="n">${r.fair?'US$ '+fmt(r.fair)+' <span class="note">('+pct(r.fair_up,0)+')</span>':'—'}</td></tr>`).join('')}</tbody></table></div>`;
   }catch(e){el.innerHTML='<p class="note">Todavía no hay registro de señales. Se crea en la próxima corrida del screener (todos los días hábiles a las 18:35).</p>'}
 }
+S.one=null;
+async function oneData(){
+  if(S.one)return S.one;
+  const r=await fetch('backtest_tickers.json?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;S.one=await r.json();return S.one}
+function initOne(){
+  const q=$('#one-q'),go=()=>showOne(q.value.trim().toUpperCase());
+  q.addEventListener('focus',async()=>{try{const D=await oneData();if(!$('#one-list').children.length)$('#one-list').innerHTML=Object.keys(D.tickers).sort().map(t=>`<option value="${t}">${esc(D.tickers[t].n)}</option>`).join('')}catch(e){}},{once:true});
+  q.onkeydown=e=>{if(e.key==='Enter')go()};$('#one-go').onclick=go;
+}
+const KIND=e=>e.setup==='Golden Cross'?['gc','Golden Cross (ya no habilita compra)','#9aa3b2']:e.b?['d','Técnica + fundamentos (regla actual)','#1f9d55']:['c','Solo técnica: no pasaba fundamentos','#2f6fdf'];
+async function showOne(t){
+  const el=$('#one-body');if(!t)return;el.innerHTML='<p class="note">Cargando…</p>';
+  let D;try{D=await oneData()}catch(e){el.innerHTML='<p class="note">Todavía no hay detalle por acción: corré el track récord (Actions → Track record PROSPEI → Run workflow).</p>';return}
+  const o=D.tickers[t];if(!o){el.innerHTML=`<p class="note">No encontré <b>${esc(t)}</b>. Tiene que ser una acción del monitor (S&amp;P 500 o ADR).</p>`;return}
+  const W=820,Hh=260,P=36,w=o.w,n=w.length,vals=w.filter(x=>x!=null),mn=Math.min(...vals),mx=Math.max(...vals);
+  const X=i=>P+(W-2*P)*i/(n-1),Y=v=>Hh-24-(Hh-48)*(v-mn)/((mx-mn)||1);
+  const path=w.map((v,i)=>v==null?'':`${i&&w[i-1]!=null?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+  const wi=d=>{let i=D.dates.findIndex(x=>x>=d);return i<0?n-1:i};
+  const marks=o.sig.map(e=>{const i=wi(e.date),k=KIND(e);return `<circle cx="${X(i).toFixed(1)}" cy="${Y(w[i]??e.p).toFixed(1)}" r="6" fill="${k[2]}" stroke="var(--card)" stroke-width="2"><title>${esc(e.date)} · ${esc(e.setup)} · ${k[1]} · 6 meses: ${pct(e['6m'],1)}</title></circle>`}).join('');
+  const yl=[mn,(mn+mx)/2,mx].map(v=>`<text x="4" y="${Y(v)+4}" font-size="11" fill="var(--muted)">${fmt(v,0)}</text>`).join('');
+  const xl=[0,Math.floor(n/2),n-1].map(i=>`<text x="${X(i)}" y="${Hh-4}" font-size="11" fill="var(--muted)" text-anchor="middle">${esc(D.dates[i].split('-').reverse().join('/'))}</text>`).join('');
+  const all=o.sig,cur=all.filter(e=>KIND(e)[0]==='d'),m=x=>{const v=x.filter(e=>e['6m']!=null);return v.length?{n:v.length,win:v.filter(e=>e['6m']>0).length/v.length,avg:v.reduce((a,e)=>a+e['6m'],0)/v.length}:null};
+  const mc=m(cur),ma=m(all),b=o.base['6m'];
+  const leg=[['d','Técnica + fundamentos (regla actual)','#1f9d55'],['c','Solo técnica: no pasaba fundamentos','#2f6fdf'],['gc','Golden Cross (ya no habilita compra)','#9aa3b2']].map(k=>`<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><i style="width:10px;height:10px;border-radius:50%;background:${k[2]};display:inline-block"></i>${k[1]}</span>`).join('');
+  const kp=(l,v,s2)=>`<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s2}</div></div>`;
+  el.innerHTML=`<h3 style="margin:14px 0 4px">${esc(t)} <span class="note">${esc(o.n)} · ${esc(o.s)}</span></h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:8px 0">
+      ${kp('Señales con la regla actual',cur.length,`de ${all.length} señales técnicas en 4 años`)}
+      ${kp('Positivas a 6 meses (regla actual)',mc?P0(mc.win):'—',mc?`${mc.n} con resultado · promedio ${pct(mc.avg,1)}`:'sin señales con 6 meses cumplidos')}
+      ${kp('Todas las señales técnicas',ma?P0(ma.win):'—',ma?`positivas a 6 meses · promedio ${pct(ma.avg,1)}`:'—')}
+      ${kp('Comprando cualquier día',b&&b.n?P0(b.win):'—',b&&b.n?`positivas a 6 meses · promedio ${pct(b.avg,1)}`:'—')}
+    </div>
+    ${o.f?'':'<p class="note">⚠️ Sin balances de la SEC para esta empresa (por ejemplo, un ADR): no se pudo aplicar el filtro de fundamentos, así que todas sus señales figuran como "solo técnica".</p>'}
+    <svg viewBox="0 0 ${W} ${Hh}" style="width:100%;height:auto;display:block;margin:6px 0">${yl}${xl}<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="1.8"/>${marks}</svg>
+    <div class="note" style="margin-bottom:10px">${leg} · pasá el mouse por un punto para ver el detalle.</div>
+    ${all.length?`<div class="tw"><table><thead><tr><th>Fecha</th><th>Señal</th><th>Tipo</th><th class="n">Técnico</th><th class="n">Precio</th><th class="n">3 meses</th><th class="n">6 meses</th><th class="n">12 meses</th><th class="n">vs S&amp;P 6m</th><th>Objetivo / stop</th></tr></thead><tbody>
+    ${all.slice().reverse().map(e=>{const k=KIND(e),r=v=>`<span class="${cls(v)}">${pct(v,1)}</span>`;return `<tr><td>${esc(e.date.split('-').reverse().join('/'))}</td><td>${setupChip(e.setup)}</td><td><span style="color:${k[2]};font-weight:600">●</span> <span class="note">${k[1]}</span></td><td class="n">${e.at}</td><td class="n">US$ ${fmt(e.p)}</td><td class="n">${r(e['3m'])}</td><td class="n">${r(e['6m'])}</td><td class="n">${r(e['12m'])}</td><td class="n">${e['6m']!=null&&e.spy_6m!=null?r(e['6m']-e.spy_6m):'—'}</td><td>${e.ts==='objetivo'?'<span class="up">✓ objetivo</span>':e.ts==='stop'?'<span class="down">✗ stop</span>':e.ts==='abierta'?'<span class="note">sin tocar</span>':'<span class="note">en curso</span>'}</td></tr>`}).join('')}</tbody></table></div>`:'<p class="note">En los últimos 4 años esta acción no dio ninguna señal de compra técnica.</p>'}
+    <p class="note" style="margin-top:8px">La regla actual del monitor además exige valor justo y analistas, que no tienen historia: lo verde es lo más parecido que se puede reconstruir.</p>`;
+}
 S.btu='broad';
 const VSHORT={A:'técnica',B:'técnica + fundamentos',C:'sin Golden Cross',D:'sin Golden Cross + fundamentos'};
 function renderBT(){
@@ -333,7 +381,7 @@ function renderBTEp(){
   $('#bt-more').textContent=rows.length>300?`Se muestran 300 de ${rows.length} señales.`:`${rows.length} señales.`;
 }
 
-loadBT();loadLive();
+loadBT();loadLive();initOne();
 </script>
 </body>
 </html>
