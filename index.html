@@ -64,6 +64,14 @@ th .ar{opacity:.6;margin-left:3px}
 tr:last-child td{border-bottom:none}
 tbody tr:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .up{color:var(--up)}.down{color:var(--down)}
+.pf-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:8px}
+.pf-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.pf-form input,.pf-form select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit;min-width:0}
+.pf-form #pf-t{width:120px;text-transform:uppercase}.pf-form #pf-p,.pf-form #pf-q{width:120px}
+.pf-row{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start}
+.pf-st{font-size:22px;line-height:1}.pf-row h4 a{color:var(--ink);text-decoration:none}.pf-row h4 a:hover{text-decoration:underline}.pf-row h4{margin:0}.pf-row ul{margin:6px 0 0;padding-left:18px;font-size:13px}
+.pf-kv{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin-top:4px}.pf-kv b{color:var(--ink)}
+.pf-x{background:none;border:1px solid var(--line);border-radius:8px;color:var(--muted);cursor:pointer;padding:3px 8px;font:inherit}
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
 .pill.up{background:var(--upbg)}.pill.down{background:var(--downbg)}
 .pill.warn{background:var(--warnbg);color:var(--warn)}
@@ -212,6 +220,7 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
     <button class="tab" data-t="acc">Acciones</button>
     <button class="tab" data-t="mep">Dólar MEP por bono</button>
     <button class="tab" data-t="ced">CEDEARs desarbitrados</button>
+    <button class="tab" data-t="pf">Mi cartera</button>
   </nav>
 
   <!-- OPORTUNIDADES -->
@@ -391,6 +400,39 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
     </div>
   </section>
 
+  <!-- MI CARTERA -->
+  <section id="t-pf" class="hide">
+    <div class="card">
+      <h2>Mi cartera: ¿vendo o mantengo?</h2>
+      <p class="sub">Cargá los papeles que tenés con fecha y precio de compra. El monitor los revisa todos los días contra tu compra y te dice qué hacer con cada uno: 🟢 Mantener · 🟡 Revisar · 🟠 Tomar ganancia parcial · 🔴 Vender. <b>Tus datos quedan guardados solo en este navegador</b>: nadie más los ve. Para pasarlos a otro dispositivo usá Exportar / Importar.</p>
+      <div class="pf-form">
+        <label>Papel<input id="pf-t" list="pf-list" placeholder="Ej. MSFT" autocomplete="off"><datalist id="pf-list"></datalist></label>
+        <label>Instrumento<select id="pf-i"><option value="us">Acción en EE.UU. (US$)</option><option value="ars">CEDEAR / BYMA en pesos</option><option value="mep">CEDEAR / BYMA en dólares (D)</option></select></label>
+        <label>Fecha de compra<input id="pf-d" type="date"></label>
+        <label>Precio de compra<input id="pf-p" type="number" step="any" min="0" placeholder="por unidad"></label>
+        <label>Cantidad <span class="note">(opcional)</span><input id="pf-q" type="number" step="any" min="0" placeholder="—"></label>
+        <button class="chip on" id="pf-add">Agregar</button>
+      </div>
+      <p class="note" id="pf-msg" style="min-height:18px;margin:6px 0 0"></p>
+    </div>
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px"><h2>Revisión de hoy</h2><p class="sub" id="pf-meta">Todavía no cargaste papeles.</p></div>
+        <div class="bar" style="margin:0"><button class="chip" id="pf-exp">Exportar</button><label class="chip" style="cursor:pointer">Importar<input type="file" id="pf-imp" accept=".json,application/json" hidden></label></div>
+      </div>
+      <div id="pf-sum"></div>
+      <div id="pf-list-body"></div>
+      <details style="margin-top:12px"><summary class="note" style="cursor:pointer">Cómo decide el monitor (reglas iniciales)</summary>
+        <ul class="note" style="padding-left:18px">
+          <li>🔴 <b>Vender</b>: tendencia de largo plazo bajista confirmada · stop: perdés 10% o más y la tendencia no acompaña · perdés más de 20% en cualquier caso · cayó 15% o más desde el máximo posterior a tu compra y además perdió la media de 200.</li>
+          <li>🟠 <b>Tomar ganancia parcial</b>: ganás y ya supera su valor justo · ganás y está en pico de ciclo · devolvió 15% o más desde el máximo pero seguís ganando · ganás 30% o más y está sobrecomprada (RSI mayor a 75).</li>
+          <li>🟡 <b>Revisar</b>: tendencia en definición o bajista en formación · perdió impulso · el monitor dice Evitar · Death Cross · cerca del stop (−7%) · perdés 10% o más con tendencia todavía alcista · presenta balance en 7 días o menos · pesa más del 20% de tu cartera (o su sector más del 40%).</li>
+          <li>🟢 <b>Mantener</b>: ninguna de las anteriores.</li>
+          <li>El resultado se calcula en la moneda en que compraste: en pesos incluye la suba del dólar. El máximo y la tendencia se miden sobre la acción en EE.UU. Son reglas iniciales: las vamos a validar con el track récord.</li>
+        </ul></details>
+    </div>
+  </section>
+
 
 </main>
 
@@ -440,7 +482,7 @@ function saveFav(){store('fav',[...S.fav])}
 $('#theme').onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);store('theme',n)};
 
 /* ---------- tabs & filters ---------- */
-$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','map','rot','acc','mep','ced'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='map')renderHeat();if(b.dataset.t==='rot'){renderRotSec();renderVM()}});
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','map','rot','acc','mep','ced','pf'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='map')renderHeat();if(b.dataset.t==='pf')renderPf();if(b.dataset.t==='rot'){renderRotSec();renderVM()}});
 function chipGroup(attr,key,fn){$$('[data-'+attr+']').forEach(b=>b.onclick=()=>{$$('[data-'+attr+']').forEach(x=>x.classList.toggle('on',x===b));S[key]=b.dataset[attr];fn()})}
 chipGroup('pa','pa',renderAcc);chipGroup('lq','lq',renderMep);chipGroup('cf','cf',renderCed);
 $('#q-acc').oninput=renderAcc;$('#q-mep').oninput=renderMep;$('#q-ced').oninput=renderCed;
@@ -653,7 +695,7 @@ async function loadScreener(){
     S.scr=null;
     $('#opo-meta').innerHTML='Todavía no hay análisis generado. En GitHub entrá a <b>Actions → Screener diario PROSPEI → Run workflow</b> y esperá unos 15 minutos.';
   }
-  renderKpisUS();renderBuy();renderTop();renderAudit();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
+  renderKpisUS();renderBuy();renderTop();renderAudit();if(!$('#t-pf').classList.contains('hide'))renderPf();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
 }
 function liveOf(t){const us=S.data.us||{};for(const k of [t,t.replace('-','.'),t.replace('-','')]){const x=us[k];if(x&&ok(x.c))return x}return null}
 function cedearOf(r){
@@ -683,6 +725,94 @@ function renderAudit(){
   $('#audit-list').innerHTML=ks.map(k=>`<div style="margin:8px 0"><b>${esc(k)}</b> <span class="note">(${A[k].length})</span><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${A[k].map(t=>`<button class="chip" data-audit="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`).join('');
   $('#audit-list').querySelectorAll('[data-audit]').forEach(b=>b.onclick=()=>openDetail(b.dataset.audit));
 }
+/* ---------- MI CARTERA ---------- */
+S.pf=store('cartera')||[];S.hist=null;
+const PF_STOP=-0.10,PF_HARD=-0.20,PF_NEAR=-0.07,PF_TRAIL=-0.15,PF_HOT=75,PF_W=0.20,PF_WS=0.40;
+const PFL=[['🟢','Mantener'],['🟡','Revisar'],['🟠','Tomar ganancia parcial'],['🔴','Vender']];
+const INST={us:'Acción EE.UU. (US$)',ars:'CEDEAR en pesos',mep:'CEDEAR en dólares'};
+async function loadHist(){if(S.hist)return S.hist;try{const r=await fetch('hist.json?v='+Date.now(),{cache:'no-store'});if(r.ok)S.hist=await r.json()}catch(e){}return S.hist}
+function pfSave(){store('cartera',S.pf)}
+function cedPx(o,inst){const cm={};(S.data.cedears||[]).forEach(c=>{if(c&&c.symbol)cm[c.symbol]=c});if(!o.ced)return null;const x=cm[inst==='mep'?o.ced.code+'D':o.ced.code];return x&&ok(x.c)?x.c:null}
+function pfEval(p,o,H){
+  const R=[];const add=(l,t)=>R.push([l,t]);const px=o.px;
+  /* precio de la acción en EE.UU. a la fecha de compra y máximo desde entonces */
+  let u0=null,maxU=px;const hc=H&&H.c&&H.c[o.t];
+  if(hc){let i=H.dates.findIndex(d=>d>=p.d);if(i<0)i=H.dates.length-1;u0=hc[i];for(let k=i;k<hc.length;k++)if(hc[k]!=null&&hc[k]>maxU)maxU=hc[k]}
+  if(p.i==='us')u0=u0||p.p;
+  const gu=u0?px/u0-1:null;
+  let now=null,approx=false;
+  if(p.i==='us')now=px;else{now=cedPx(o,p.i);if(now==null&&gu!=null){now=p.p*(1+gu);approx=true}}
+  const g=now!=null?now/p.p-1:null,ddm=maxU?px/maxU-1:null;
+  const warnPx=p.i==='us'&&u0&&Math.abs(p.p/u0-1)>0.25;
+  /* vender */
+  if(o.trend==='Bajista confirmada')add(3,'Tendencia de largo plazo bajista confirmada: debajo de su media de 200 en diario y en semanal.');
+  const ab=x=>fmt(Math.abs(x)*100,0)+'%';
+  if(g!=null&&g<=PF_HARD)add(3,`Pérdida de ${ab(g)} desde tu compra: supera el límite de ${ab(PF_HARD)}, sin importar la tendencia.`);
+  else if(g!=null&&g<=PF_STOP&&o.trend_n<=0)add(3,`Stop: perdés ${ab(g)} desde tu compra y la tendencia no acompaña.`);
+  else if(g!=null&&g<=PF_STOP)add(1,`Perdés ${ab(g)} desde tu compra aunque la tendencia de largo plazo sigue alcista: definí si mantener o cortar.`);
+  if(ddm!=null&&ddm<=PF_TRAIL&&o.sma200&&px<o.sma200)add(3,`Cayó ${ab(ddm)} desde el máximo posterior a tu compra (US$ ${fmt(maxU)}) y perdió la media de 200.`);
+  /* tomar ganancia */
+  if(g!=null&&g>0&&o.fair_up!=null&&o.fair_up<0)add(2,`Ganás ${pct(g,1)} y ya supera su valor justo estimado (US$ ${fmt(o.fair)}, ${pct(o.fair_up,0)}).`);
+  if(g!=null&&g>0&&o.cyc)add(2,'Pico de ciclo: las ganancias de la empresa estarían por bajar. Buen momento para asegurar una parte.');
+  if(ddm!=null&&ddm<=PF_TRAIL&&gu!=null&&gu>0&&!(o.sma200&&px<o.sma200))add(2,`Devolvió ${ab(ddm)} desde el máximo posterior a tu compra (US$ ${fmt(maxU)}): proteger la ganancia que queda.`);
+  if(ddm!=null&&ddm<=PF_TRAIL&&gu!=null&&gu<=0&&!(o.sma200&&px<o.sma200))add(1,`Cayó ${ab(ddm)} desde el máximo posterior a tu compra, todavía arriba de su media de 200.`);
+  if(g!=null&&g>=0.30&&o.rsi>PF_HOT)add(2,`Ganás ${pct(g,0)} y está sobrecomprada (RSI ${fmt(o.rsi,0)}).`);
+  /* revisar */
+  if(o.trend==='Bajista en formación'||o.trend==='Zona de definición')add(1,`Tendencia: ${o.trend.toLowerCase()} alrededor de su media de 200.`);
+  if(/Perdió impulso/.test(o.vm_st||''))add(1,o.vm_st+'.');
+  if(o.verdict==='Evitar')add(1,'El monitor hoy dice Evitar: '+(o.verdict_why||'').replace(/^Evitar por ahora: /,''));
+  if(o.cross==='Death Cross reciente'||o.cross==='Death Cross en formación')add(1,o.cross+': la media de 50 cruza o está por cruzar debajo de la de 200.');
+  if(g!=null&&g<=PF_NEAR&&g>PF_STOP)add(1,`Cerca del stop: perdés ${ab(g)} (el stop sugerido es ${ab(PF_STOP)}).`);
+  if(o.earn_days!=null&&o.earn_days>=0&&o.earn_days<=7)add(1,`Presenta balance ${o.earn_days===0?'hoy':o.earn_days===1?'mañana':'en '+o.earn_days+' días'}: decidir antes si reducir.`);
+  const lvl=R.length?Math.max(...R.map(x=>x[0])):0;
+  const good=[];if(o.trend_n>=1)good.push('tendencia alcista');if(o.fair_up!=null&&o.fair_up>0)good.push(`recorrido ${pct(o.fair_up,0)} a su valor justo`);if(o.verdict)good.push('veredicto del monitor: '+o.verdict);
+  return {lvl,R:R.sort((a,b)=>b[0]-a[0]),g,gu,now,approx,ddm,maxU,u0,warnPx,good};
+}
+async function renderPf(){
+  const dl=$('#pf-list');if(S.scr&&!dl.children.length)dl.innerHTML=S.scr.rows.map(r=>`<option value="${esc(r.t)}">${esc(r.name)}</option>`).join('');
+  if(!$('#pf-d').value)$('#pf-d').value=new Date().toISOString().slice(0,10);
+  const el=$('#pf-list-body'),sum=$('#pf-sum');
+  if(!S.pf.length){el.innerHTML='';sum.innerHTML='';$('#pf-meta').textContent='Todavía no cargaste papeles.';return}
+  if(!S.scr){el.innerHTML='<p class="note">Cargando el análisis del día…</p>';return}
+  const H=await loadHist();const rows={};S.scr.rows.forEach(r=>rows[r.t]=r);
+  const mep=S.ref.mep&&S.ref.mep.v;
+  const items=S.pf.map((p,k)=>{const r=rows[p.t];if(!r)return {p,k,miss:true};const o=enrich(r);const e=pfEval(p,o,H);
+    let val=null;if(p.q&&e.now!=null)val=p.i==='ars'?(mep?p.q*e.now/mep:null):p.q*e.now;return {p,k,o,e,val}});
+  /* concentración: valores aproximados en US$ */
+  const tot=items.reduce((a,x)=>a+(x.val||0),0);
+  if(tot>0){const bs={};items.forEach(x=>{if(x.val&&x.o)bs[x.o.sector]=(bs[x.o.sector]||0)+x.val});
+    items.forEach(x=>{if(!x.val)return;const w=x.val/tot,ws=bs[x.o.sector]/tot;x.w=w;
+      if(items.length>2&&w>PF_W)x.e.R.push([1,`Pesa ${fmt(w*100,0)}% de tu cartera: mucha concentración en un solo papel.`]);
+      if(items.length>2&&ws>PF_WS)x.e.R.push([1,`Su sector (${x.o.sector}) pesa ${fmt(ws*100,0)}% de tu cartera.`]);
+      x.e.lvl=Math.max(x.e.lvl,...x.e.R.map(y=>y[0]),0)})}
+  const cnt=[0,0,0,0];items.forEach(x=>{if(!x.miss)cnt[x.e.lvl]++});
+  $('#pf-meta').innerHTML=`${S.pf.length} posiciones · análisis del cierre del ${esc((S.scr.generated||'').slice(0,10).split('-').reverse().join('/'))} con precios en vivo${tot>0?` · valor aproximado US$ ${fmt(tot,0)}`:''}.`;
+  sum.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">${[3,2,1,0].map(l=>`<span class="pill" style="background:var(--bg);border:1px solid var(--line)">${PFL[l][0]} ${PFL[l][1]}: <b>${cnt[l]}</b></span>`).join('')}</div>`;
+  el.innerHTML=items.slice().sort((a,b)=>(b.miss?-1:b.e.lvl)-(a.miss?-1:a.e.lvl)).map(x=>{
+    const p=x.p;if(x.miss)return `<div class="pf-row"><div class="pf-st">⚪</div><div><h4>${esc(p.t)}</h4><p class="note">No está en el análisis del monitor (S&amp;P 500 y ADRs).</p></div><button class="pf-x" data-del="${x.k}">✕</button></div>`;
+    const o=x.o,e=x.e,cur=p.i==='ars'?'$':'US$';
+    return `<div class="pf-row"><div class="pf-st" title="${PFL[e.lvl][1]}">${PFL[e.lvl][0]}</div><div>
+      <h4><a href="#" data-open="${esc(o.t)}">${esc(o.t)}</a> <span class="note">${esc(o.name)} · ${INST[p.i]}</span> · <span style="font-size:14px">${PFL[e.lvl][1]}</span></h4>
+      <div class="pf-kv"><span>Compra <b>${cur} ${fmt(p.p)}</b> el ${esc(p.d.split('-').reverse().join('/'))}</span><span>Hoy <b>${e.now!=null?cur+' '+fmt(e.now):'—'}</b>${e.approx?' <span title="Sin precio en vivo del CEDEAR: estimado con la variación de la acción en EE.UU.">(aprox.)</span>':''}</span>
+        <span>Resultado <b class="${cls(e.g)}">${pct(e.g,1)}</b></span>${p.q?`<span>Cantidad <b>${fmt(p.q,0)}</b>${x.w!=null?` · ${fmt(x.w*100,0)}% de la cartera`:''}</span>`:''}
+        <span>Desde el máximo posterior a tu compra <b class="${cls(e.ddm)}">${pct(e.ddm,1)}</b></span><span>Monitor: <span class="${vdCls(o.verdict)}">${esc(o.verdict||'—')}</span></span></div>
+      ${e.R.length?`<ul>${e.R.map(r=>`<li>${PFL[r[0]][0]} ${esc(r[1])}</li>`).join('')}</ul>`:`<ul><li>🟢 Sin alertas${e.good.length?': '+esc(e.good.join(' · ')):''}.</li></ul>`}
+      ${e.warnPx?`<p class="note" style="margin:4px 0 0">⚠️ El precio cargado difiere más de 25% del que tenía la acción esa semana (US$ ${fmt(e.u0)}): revisá el precio o el instrumento.</p>`:''}
+    </div><button class="pf-x" data-del="${x.k}" title="Quitar">✕</button></div>`}).join('');
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const k=+b.dataset.del;if(!confirm('¿Quitar '+S.pf[k].t+' de tu cartera?'))return;S.pf.splice(k,1);pfSave();renderPf()});
+  el.querySelectorAll('[data-open]').forEach(a=>a.onclick=ev=>{ev.preventDefault();openDetail(a.dataset.open)});
+}
+$('#pf-add').onclick=()=>{
+  const t=$('#pf-t').value.trim().toUpperCase().replace('.','-'),i=$('#pf-i').value,d=$('#pf-d').value,pp=parseFloat($('#pf-p').value),q=parseFloat($('#pf-q').value);
+  const msg=$('#pf-msg');const r=S.scr&&S.scr.rows.find(x=>x.t===t);
+  if(!r){msg.textContent='Elegí un papel del monitor (S&P 500 o ADR).';return}
+  if(!d||d>new Date().toISOString().slice(0,10)){msg.textContent='Revisá la fecha de compra.';return}
+  if(!(pp>0)){msg.textContent='Cargá el precio de compra.';return}
+  if(i!=='us'&&!cedearOf(r)){msg.textContent=`${t} no tiene CEDEAR en BYMA: cargalo como acción en EE.UU.`;return}
+  S.pf.push({t,i,d,p:pp,q:q>0?q:null});pfSave();msg.textContent=`${t} agregado.`;$('#pf-t').value='';$('#pf-p').value='';$('#pf-q').value='';renderPf();
+};
+$('#pf-exp').onclick=()=>{const b=new Blob([JSON.stringify(S.pf,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='mi-cartera-prospei.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+$('#pf-imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d))throw 0;const okRows=d.filter(x=>x&&x.t&&x.d&&x.p>0&&['us','ars','mep'].includes(x.i));if(!confirm(`¿Importar ${okRows.length} posiciones? Reemplaza las que tenés cargadas en este navegador.`))return;S.pf=okRows;pfSave();renderPf()}catch(err){alert('El archivo no es válido.')}e.target.value=''};
 function renderBuy(){
   if(!S.scr){$('#buy-card').classList.add('hide');return}
   const all=S.scr.rows.map(enrich);
