@@ -1173,7 +1173,9 @@ def add_verdicts(df, prev):
 
 
 V_AT, V_AF, V_UP = 65, 60, 0.10      # umbrales: técnico, fundamental, recorrido mínimo a valor justo
-ENTRY_SETUPS = {"Corrección con señal de rebote", "Golden Cross", "Ruptura de máximos"}
+# El Golden Cross no habilita "Comprar": en el track récord (4 años, 100 acciones al azar) llegó tarde y
+# rindió peor que comprar sin señal. Queda como dato informativo en la ficha.
+ENTRY_SETUPS = {"Corrección con señal de rebote", "Ruptura de máximos"}
 
 
 def verdict(r):
@@ -1188,7 +1190,7 @@ def verdict(r):
         (up is not None and up >= V_UP and not doubt,
          "valuación confiable (hoy está marcada como dudosa)" if doubt else
          f"recorrido a valor justo ≥ {V_UP*100:.0f}%" + (f" (tiene {up*100:+.0f}%)" if up is not None else "")),
-        (entry, "zona Compra o señal de entrada (rebote, Golden Cross, ruptura)"),
+        (entry, "zona Compra o señal de entrada (corrección con rebote o ruptura de máximos)"),
     ]
     falta = [t for ok, t in checks if not ok]
     earn_soon = L["evt"] == 0
