@@ -1139,11 +1139,24 @@ def no_nan(x):
     return x
 
 
+def today_ar():
+    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=3)).date().isoformat()
+
+
+PREV_DATE = None   # fecha de la rueda contra la que se comparan las novedades
+
+
 def load_prev_verdicts(path="data.json"):
-    """Veredictos de la corrida anterior (el data.json que todavía está en el repo)."""
+    """Veredictos del día hábil anterior. Si el screener ya corrió hoy (por ejemplo a mano),
+    se reutiliza la base de esa corrida, así las novedades del día no se pierden al volver a correrlo."""
+    global PREV_DATE
     try:
         with open(path, encoding="utf-8") as f:
             d = json.load(f)
+        if d.get("run_date") == today_ar() and isinstance(d.get("verdict_base"), dict):
+            PREV_DATE = d.get("verdict_base_date")
+            return d["verdict_base"]
+        PREV_DATE = d.get("run_date") or str(d.get("generated", ""))[:10] or None
         return {r["t"]: r.get("verdict") for r in d.get("rows", []) if r.get("verdict")}
     except Exception:
         return {}
@@ -1154,6 +1167,7 @@ def add_verdicts(df, prev):
     df["verdict"] = [v[0] for v in vv]
     df["verdict_why"] = [v[1] for v in vv]
     df["verdict_prev"] = [prev.get(t) for t in df.t]
+    df.attrs["verdict_base"] = {k: v for k, v in prev.items() if isinstance(v, str)}
     df["verdict_new"] = [(v[0] == "Comprar" and bool(prev) and prev.get(t) != "Comprar") for v, t in zip(vv, df.t)]
     return df
 
@@ -1258,6 +1272,7 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
         heat.append({"sector": sec, "n": int(len(g)), "score": r2(g.score.mean(), 1),
                      "r1d": r2(g.r1d.median()), "r1m": r2(g.r1m.median())})
     return {"generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
+            "run_date": today_ar(), "verdict_base": df.attrs.get("verdict_base", {}), "verdict_base_date": PREV_DATE,
             "universe": n_universe, "analyzed": int(len(df)), "top_n": TOP_N,
             "method": "AT 50% (tendencia, momentum, RSI/MACD, posición vs máximo) + AF 50% (valuación vs sector, crecimiento, calidad, solidez, analistas).",
             "sectors": sorted(heat, key=lambda h: -h["score"]), "spy": spy, "etfs": etfs or [],
