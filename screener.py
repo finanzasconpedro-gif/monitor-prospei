@@ -1219,6 +1219,37 @@ def verdict(r):
     return "Vigilar", "Para pasar a Comprar falta: " + ", ".join(falta) + "." + (" Presenta balance en ≤7 días." if earn_soon else "")
 
 
+SIGNAL_LOG = "signals.json"
+SIGNAL_GAP_DAYS = 30     # la misma acción con el mismo veredicto cuenta como señal nueva recién después de 30 días
+
+
+def save_signals(df, spy, path=SIGNAL_LOG):
+    """Registro permanente de cada "Comprar" y "Comprar en partes" real, para medirlos más adelante."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            log = json.load(f)
+    except Exception:
+        log = []
+    today = today_ar()
+    log = [e for e in log if e.get("date") != today]          # si se corre dos veces el mismo día, se rehace
+    last = {}
+    for e in log:
+        last[(e["t"], e["verdict"])] = max(last.get((e["t"], e["verdict"]), ""), e["date"])
+    lim = (dt.date.fromisoformat(today) - dt.timedelta(days=SIGNAL_GAP_DAYS)).isoformat()
+    spy_p = spy.get("p") if spy else None
+    added = 0
+    for r in df[df.verdict.isin(["Comprar", "Comprar en partes"])].itertuples():
+        if last.get((r.t, r.verdict), "") > lim:
+            continue
+        log.append({"date": today, "t": r.t, "name": r.name, "sector": r.sector, "verdict": r.verdict,
+                    "setup": r.setup, "p": r2(r.p, 2), "spy": r2(spy_p, 2), "fair": r2(r.fair, 2),
+                    "fair_up": r2(r.fair_up), "at": r2(r.at, 0), "af": r2(r.af, 0)})
+        added += 1
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(no_nan(log), f, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    print(f"Registro de señales: {added} nuevas hoy · {len(log)} en total")
+
+
 def audit_summary(df):
     cats = {"Valuada por precio / valor libros": "Bancos, aseguradoras y holdings (valor libros)",
             "Valuada por dividendo y analistas": "REITs (dividendo y analistas)",
@@ -1357,6 +1388,7 @@ def main():
         json.dump(no_nan(to_json(df, len(syms), spy, etfs, vm_dates, macro)), f, ensure_ascii=False,
                   separators=(",", ":"), allow_nan=False)
     print("OK data.json:", len(df), "papeles. Top:", list(df[df["rank"].notna()].t))
+    save_signals(df, spy)
 
 
 if __name__ == "__main__":
