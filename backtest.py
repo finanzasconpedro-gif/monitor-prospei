@@ -115,7 +115,7 @@ def sec_facts(cik):
     return r.json()
 
 
-def quarters(facts, tags, unit):
+def quarters(facts, tags, unit, adj=None):
     """Serie trimestral (fin, fecha de presentación, valor). El 4º trimestre se deriva del anual menos 3 trimestres."""
     best = {}
     for pri, tag in enumerate(tags):
@@ -129,7 +129,8 @@ def quarters(facts, tags, unit):
             s, en, f = pd.Timestamp(e["start"]), pd.Timestamp(e["end"]), pd.Timestamp(e["filed"])
             k = (s, en)
             if k not in ent or f < ent[k][1]:          # la primera vez que se publicó (sin revisiones posteriores)
-                ent[k] = (float(e["val"]), f)
+                v_ = float(e["val"])
+                ent[k] = (adj(v_, f) if adj else v_, f)
         qs = {k: v for k, v in ent.items() if 80 <= (k[1] - k[0]).days <= 100}
         ys = {k: v for k, v in ent.items() if 350 <= (k[1] - k[0]).days <= 380}
         q = {en: (val, f) for (s, en), (val, f) in qs.items()}
@@ -158,7 +159,22 @@ def ttm_daily(qs, index):
     return pd.Series(out, index=index)
 
 
-def fundamentals(sym, cik, close):
+def split_adj(splits):
+    """La SEC publica la ganancia por acción con la cantidad de acciones de ese momento. Los precios de Yahoo
+    vienen ajustados por todos los splits posteriores, así que la ganancia se divide por los splits
+    ocurridos después de cada presentación (ej. NVDA 4:1 en 2021 y 10:1 en 2024)."""
+    if not splits:
+        return None
+    def f(val, filed):
+        k = 1.0
+        for d, r in splits:
+            if d > filed:
+                k *= r
+        return val / k
+    return f
+
+
+def fundamentals(sym, cik, close, splits=None):
     """Devuelve DataFrame diario con eps_ttm, pe, pe_med5 (mediana de 5 años previa), rev_g y fechas de presentación."""
     idx = close.index
     try:
@@ -166,7 +182,8 @@ def fundamentals(sym, cik, close):
     except Exception as e:
         print("  SEC sin datos para", sym, e)
         return None, []
-    eps_q = quarters(f, ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted", "EarningsPerShareBasic"], "USD/shares")
+    eps_q = quarters(f, ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted", "EarningsPerShareBasic"], "USD/shares",
+                     split_adj(splits))
     rev_q = quarters(f, ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "SalesRevenueNet",
                          "RevenuesNetOfInterestExpense", "RevenueFromContractWithCustomerIncludingAssessedTax"], "USD")
     # muestreo semanal para acelerar y luego se rellena
@@ -371,13 +388,22 @@ def main():
     frames = []
     for i in range(0, len(tick), 100):
         frames.append(yf.download(tick[i:i + 100] + ["SPY"], period="10y", interval="1d", auto_adjust=True,
-                                  group_by="ticker", threads=True, progress=False))
+                                  actions=True, group_by="ticker", threads=True, progress=False))
         time.sleep(1)
     lv = lambda d: set(d.columns.get_level_values(0))
     close = pd.concat([pd.DataFrame({s: d[s]["Close"] for s in tick + ["SPY"] if s in lv(d)}) for d in frames], axis=1)
     close = close.loc[:, ~close.columns.duplicated()]
     vol = pd.concat([pd.DataFrame({s: d[s]["Volume"] for s in tick if s in lv(d)}) for d in frames], axis=1)
     vol = vol.loc[:, ~vol.columns.duplicated()].reindex(close.index)
+    splits = {}
+    for d in frames:
+        for s_ in tick:
+            if s_ in lv(d) and "Stock Splits" in d[s_].columns:
+                sp_ = d[s_]["Stock Splits"].fillna(0)
+                ev = [(pd.Timestamp(k).tz_localize(None) if pd.Timestamp(k).tzinfo else pd.Timestamp(k), float(v)) for k, v in sp_[sp_ > 0].items() if float(v) != 1.0]
+                if ev:
+                    splits[s_] = ev
+    print("Acciones con splits en 10 años:", len(splits))
     close = close.ffill(limit=3)
     tick = [t for t in tick if t in close.columns and t in vol.columns and close[t].notna().sum() > 300]
     sp = [s for s, _, _ in S.sp500()]
@@ -400,7 +426,7 @@ def main():
     fund, edates = {}, {}
     for n_t, t in enumerate(tick):
         cik = ciks.get(t.upper()) or ciks.get(t.upper().replace("-", "."))
-        fd, filed = fundamentals(t, cik, close[t]) if cik else (None, [])
+        fd, filed = fundamentals(t, cik, close[t], splits.get(t)) if cik else (None, [])
         fund[t] = None if fd is None else np.vstack([fd.eps.values, fd.pe.values, fd.pe_med5.values, fd.rev_g.values])
         edates[t] = np.array(earnings_dates(t, filed, cik), dtype="datetime64[ns]")
         if n_t % 50 == 0:
