@@ -150,6 +150,7 @@ tr[data-t]{cursor:pointer}
 .sp-lbl{text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sp-track{position:relative;height:20px;background:var(--bg);border-radius:6px}
 .sp-track b{position:absolute;top:2px;bottom:2px;border-radius:4px;min-width:2px}
+.sp-zero{position:absolute;left:50%;top:0;bottom:0;border-left:1px solid var(--line)}
 .sp-ref{position:absolute;top:-3px;bottom:-3px;border-left:2px dashed var(--muted);z-index:1}
 .sp-val{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
 @media (max-width:560px){.sp-row{grid-template-columns:92px 1fr 78px;gap:6px;font-size:12px}.sp-lbl .note{display:none}}
@@ -288,6 +289,7 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
       <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
         <div style="flex:1;min-width:240px"><h2>Rendimiento por sector</h2><p class="sub" style="margin:0">Variación de cada sector del S&amp;P 500 (medido con su ETF) en el período elegido. La línea punteada es el S&amp;P 500: los que la superan están liderando. Tocá un sector para ver su ficha.</p></div>
         <div class="bar" style="margin:0">
+          <select id="sp-mode" title="Forma de las barras"><option value="center">Centrada en 0</option><option value="left">Todas a la derecha</option></select>
           <button class="chip" data-sp="1">Día</button><button class="chip on" data-sp="5">Semana</button><button class="chip" data-sp="21">Mes</button><button class="chip" data-sp="63">3 meses</button><button class="chip" data-sp="126">6 meses</button><button class="chip" data-sp="252">12 meses</button>
         </div>
       </div>
@@ -1235,15 +1237,16 @@ function renderSecPerf(){
   const n=S.sp,rows=E.map(e=>({e,v:etfRet(e,n)})).filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
   let spy=S.scr.spy&&S.scr.spy[SPK[n]];if(n===1){const lv=liveOf('SPY');if(lv&&lv.pct_change!=null)spy=lv.pct_change/100}
   const mx=Math.max(0.005,...rows.map(x=>Math.abs(x.v)),spy!=null?Math.abs(spy):0);
-  const W=v=>Math.abs(v)/mx*100;
+  const cen=S.spMode!=='left',W=v=>Math.abs(v)/mx*(cen?50:100);
   const col=v=>{const a=Math.min(1,Math.abs(v)/mx);return v>=0?`hsl(140 ${40+25*a}% ${52-12*a}%)`:`hsl(4 ${50+25*a}% ${58-10*a}%)`};
   el.innerHTML=`<div class="sp-chart">${rows.map(x=>{const v=x.v,lead=spy!=null&&v>spy;return `<div class="sp-row" data-etf="${esc(x.e.etf)}" title="${esc(x.e.sector)} (${esc(x.e.etf)}): ${pct(v,2)} ${SPL[n]}${spy!=null?' · S&P 500 '+pct(spy,2):''}">
       <div class="sp-lbl">${esc(x.e.sector)} <span class="note">${esc(x.e.etf)}</span></div>
-      <div class="sp-track">${spy!=null?`<i class="sp-ref" style="left:${W(spy)}%;border-color:${spy>=0?'var(--muted)':'var(--down)'}"></i>`:''}<b style="left:0;width:${W(v)}%;background:${col(v)}"></b></div>
+      <div class="sp-track">${cen?'<i class="sp-zero"></i>':''}${spy!=null?`<i class="sp-ref" style="left:${cen?50+(spy>=0?1:-1)*W(spy):W(spy)}%;border-color:${spy>=0?'var(--muted)':'var(--down)'}"></i>`:''}<b style="${cen?(v>=0?'left:50%':'right:50%'):'left:0'};width:${W(v)}%;background:${col(v)}"></b></div>
       <div class="sp-val ${cls(v)}">${pct(v,2)}${lead?' <span class="note">▲</span>':''}</div></div>`}).join('')}</div>
-    <p class="note" style="margin:8px 0 0">${spy!=null?`S&amp;P 500 ${SPL[n]}: <b class="${cls(spy)}">${pct(spy,2)}</b> (línea punteada${spy<0?', en rojo porque el índice bajó':''}). ▲ = le ganó al índice. `:''}${n===1?'Con precios en vivo cuando el mercado está abierto.':'Con el cierre del último análisis diario.'}</p>`;
+    <p class="note" style="margin:8px 0 0">${spy!=null?`S&amp;P 500 ${SPL[n]}: <b class="${cls(spy)}">${pct(spy,2)}</b> (línea punteada${spy<0?', en rojo porque el índice bajó':''}). ▲ = le ganó al índice. ${cen?'Vista centrada: lo que queda a la derecha de la línea le ganó al S&amp;P. ':'Vista alineada: el largo es cuánto se movió; la línea sirve para comparar las verdes. '}`:''}${n===1?'Con precios en vivo cuando el mercado está abierto.':'Con el cierre del último análisis diario.'}</p>`;
   el.querySelectorAll('[data-etf]').forEach(r=>r.onclick=()=>openEtf(r.dataset.etf));
 }
+S.spMode=store('spMode')||'center';$('#sp-mode').value=S.spMode;$('#sp-mode').onchange=e=>{S.spMode=e.target.value;store('spMode',S.spMode);renderSecPerf()};
 $$('[data-sp]').forEach(b=>b.onclick=()=>{$$('[data-sp]').forEach(x=>x.classList.toggle('on',x===b));S.sp=+b.dataset.sp;renderSecPerf()});
 function renderHeat(){
   const el=$('#heat');if(!el)return;
