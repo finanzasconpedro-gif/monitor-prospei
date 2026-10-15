@@ -1235,13 +1235,13 @@ function renderSecPerf(){
   const n=S.sp,rows=E.map(e=>({e,v:etfRet(e,n)})).filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
   let spy=S.scr.spy&&S.scr.spy[SPK[n]];if(n===1){const lv=liveOf('SPY');if(lv&&lv.pct_change!=null)spy=lv.pct_change/100}
   const mx=Math.max(0.005,...rows.map(x=>Math.abs(x.v)),spy!=null?Math.abs(spy):0);
-  const W=v=>Math.abs(v)/mx*50;
+  const W=v=>Math.abs(v)/mx*100;
   const col=v=>{const a=Math.min(1,Math.abs(v)/mx);return v>=0?`hsl(140 ${40+25*a}% ${52-12*a}%)`:`hsl(4 ${50+25*a}% ${58-10*a}%)`};
   el.innerHTML=`<div class="sp-chart">${rows.map(x=>{const v=x.v,lead=spy!=null&&v>spy;return `<div class="sp-row" data-etf="${esc(x.e.etf)}" title="${esc(x.e.sector)} (${esc(x.e.etf)}): ${pct(v,2)} ${SPL[n]}${spy!=null?' · S&P 500 '+pct(spy,2):''}">
       <div class="sp-lbl">${esc(x.e.sector)} <span class="note">${esc(x.e.etf)}</span></div>
-      <div class="sp-track">${spy!=null?`<i class="sp-ref" style="left:${50+(spy>=0?1:-1)*W(spy)}%"></i>`:''}<b style="${v>=0?'left:50%':'right:50%'};width:${W(v)}%;background:${col(v)}"></b></div>
+      <div class="sp-track">${spy!=null?`<i class="sp-ref" style="left:${W(spy)}%;border-color:${spy>=0?'var(--muted)':'var(--down)'}"></i>`:''}<b style="left:0;width:${W(v)}%;background:${col(v)}"></b></div>
       <div class="sp-val ${cls(v)}">${pct(v,2)}${lead?' <span class="note">▲</span>':''}</div></div>`}).join('')}</div>
-    <p class="note" style="margin:8px 0 0">${spy!=null?`S&amp;P 500 ${SPL[n]}: <b class="${cls(spy)}">${pct(spy,2)}</b> (línea punteada). ▲ = le ganó al índice. `:''}${n===1?'Con precios en vivo cuando el mercado está abierto.':'Con el cierre del último análisis diario.'}</p>`;
+    <p class="note" style="margin:8px 0 0">${spy!=null?`S&amp;P 500 ${SPL[n]}: <b class="${cls(spy)}">${pct(spy,2)}</b> (línea punteada${spy<0?', en rojo porque el índice bajó':''}). ▲ = le ganó al índice. `:''}${n===1?'Con precios en vivo cuando el mercado está abierto.':'Con el cierre del último análisis diario.'}</p>`;
   el.querySelectorAll('[data-etf]').forEach(r=>r.onclick=()=>openEtf(r.dataset.etf));
 }
 $$('[data-sp]').forEach(b=>b.onclick=()=>{$$('[data-sp]').forEach(x=>x.classList.toggle('on',x===b));S.sp=+b.dataset.sp;renderSecPerf()});
