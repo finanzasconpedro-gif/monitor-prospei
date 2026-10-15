@@ -229,7 +229,7 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
       <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
         <div style="flex:1;min-width:260px">
           <h2>Comprar hoy</h2>
-          <p class="sub">Solo las que cumplen los 5 criterios a la vez: técnico ≥ 65, fundamental ≥ 60, ninguna luz roja, recorrido a valor justo ≥ 10% y zona Compra o señal de entrada. Sin balance en los próximos 7 días.</p>
+          <p class="sub">Solo las que cumplen los 5 criterios a la vez: técnico ≥ 65, fundamental ≥ 60, ninguna luz roja, recorrido a valor justo ≥ 10% y zona Compra o señal de entrada (corrección con rebote o ruptura de máximos). Sin balance en los próximos 7 días y con el S&amp;P 500 arriba de su media de 200 días.</p>
         </div>
         <div id="verdict-count" style="display:flex;gap:4px;flex-wrap:wrap"></div>
       </div>
@@ -835,6 +835,8 @@ function renderBuy(){
   const all=S.scr.rows.map(enrich);
   if(!all.some(o=>o.verdict)){$('#buy-card').classList.add('hide');return}
   $('#buy-card').classList.remove('hide');
+  const M=S.scr.market;let mb=$('#mkt-banner');if(!mb){mb=document.createElement('div');mb.id='mkt-banner';$('#buy-new').before(mb)}
+  mb.innerHTML=M&&M.up===false?`<div class="buy-new" style="border-color:var(--down)"><b>⚠️ Mercado bajista:</b> el S&amp;P 500 está ${M.dist!=null?pct(Math.abs(M.dist),1).replace('+','')+' ':''}debajo de su media de 200 días. En el track récord, en esos períodos las señales de compra fallaron mucho más (2022), así que hoy no hay "Comprar" pleno: las que cumplen todo pasan a <b>Comprar en partes</b> (entrada escalonada de a tercios, con stop).</div>`:'';
   const cnt={};all.forEach(o=>{cnt[o.verdict]=(cnt[o.verdict]||0)+1});
   $('#verdict-count').innerHTML=['Comprar','Comprar en partes','Vigilar','Mantener','Evitar'].map(v=>`<span class="${vdCls(v)}" style="font-size:11px">${v} ${cnt[v]||0}</span>`).join('');
   const nw=all.filter(o=>o.verdict_new);
