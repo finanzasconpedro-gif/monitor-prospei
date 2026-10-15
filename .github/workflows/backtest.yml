@@ -11,7 +11,7 @@ permissions:
 jobs:
   backtest:
     runs-on: ubuntu-24.04
-    timeout-minutes: 150
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +25,7 @@ jobs:
       - name: Correr track record
         env:
           SEC_UA: ${{ secrets.SEC_UA }}
+          PYTHONUNBUFFERED: "1"
         run: python backtest.py
 
       - name: Guardar backtest.json
