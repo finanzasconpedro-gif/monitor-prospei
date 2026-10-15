@@ -55,6 +55,18 @@ VARIANTS = {
     "F": "C + crecimiento (ganancia y ventas de 12 meses creciendo contra el año anterior) + filtro de mercado",
 }
 KEYS = ("A", "B", "C", "D", "E", "F")
+EXIT_H = 252     # se compara cada regla de venta contra mantener 12 meses
+EXIT_RULES = {
+    "stop10": "Stop fijo: vender si pierde 10% desde la compra",
+    "stop10t": "Stop 10% solo si además la tendencia no acompaña (regla de Mi cartera)",
+    "hard20": "Pérdida máxima: vender si pierde 20%",
+    "trail15": "Stop que acompaña: vender si cae 15% desde el máximo posterior a la compra",
+    "trail15m": "Cae 15% desde el máximo y además pierde la media de 200 (regla de Mi cartera)",
+    "bear": "Tendencia de largo plazo bajista confirmada (regla de Mi cartera)",
+    "risk2": "Riesgo de baja: 2 de 3 señales técnicas (tendencia bajista, perforó mínimo, Death Cross)",
+    "cartera": "Todas las reglas de Vender de Mi cartera juntas (la primera que se active)",
+    "cartera_r": "Mi cartera + riesgo de baja",
+}
 # reglas originales del monitor (la A incluye el Golden Cross; el monitor ya lo sacó en base a esta prueba)
 ENTRY_A = {"Corrección con señal de rebote", "Golden Cross", "Ruptura de máximos"}
 
@@ -94,13 +106,31 @@ def pick_universe():
 
 
 # ------------------------------------------------------------------ SEC (balances punto en el tiempo)
-def sec_get(url, timeout=60):
+SEC_FAILS = [0]          # fallas seguidas: si la SEC deja de responder, se sigue sin balances en vez de trabarse
+T0 = time.time()
+TIME_BUDGET_FUND = 50 * 60   # tope de minutos para bajar balances; después se sigue con lo que haya
+
+
+def sec_get(url, timeout=25):
+    if SEC_FAILS[0] >= 8:
+        raise RuntimeError("la SEC dejó de responder: se sigue sin balances")
     for k in range(3):
-        r = requests.get(url, headers={"User-Agent": SEC_UA, "Accept-Encoding": "gzip, deflate"}, timeout=timeout)
+        try:
+            r = requests.get(url, headers={"User-Agent": SEC_UA, "Accept-Encoding": "gzip, deflate"}, timeout=timeout)
+        except requests.RequestException as e:
+            SEC_FAILS[0] += 1
+            if k == 2:
+                raise RuntimeError(f"SEC sin respuesta: {e}")
+            time.sleep(2 + 3 * k)
+            continue
         if r.status_code == 200:
+            SEC_FAILS[0] = 0
             return r
         if r.status_code == 403:
             raise RuntimeError("la SEC rechazó el pedido (403): falta cargar el secreto SEC_UA con nombre y email de contacto")
+        if r.status_code == 404:
+            raise RuntimeError("sin datos en la SEC (404)")
+        SEC_FAILS[0] += 1
         time.sleep(2 + 3 * k)
     r.raise_for_status()
 
@@ -218,6 +248,8 @@ def earnings_dates(sym, filed, cik=None):
         d = sec_earn_dates(cik)
         if len(d) >= 8:
             return d
+    if cik and filed:
+        return [pd.Timestamp(d) for d in filed]
     try:
         import yfinance as yf
         ed = yf.Ticker(sym).get_earnings_dates(limit=40)
@@ -296,6 +328,8 @@ def run_ticker(args):
             continue
         row = {k: r.get(k) for k in TECH_COLS}
         row["cross"] = r.get("cross")
+        row["et_low"] = r.get("et_low")
+        row["slope200_pct"] = r.get("slope200_pct")
         rows.append(row)
         keep.append(i)
     if not rows:
@@ -359,7 +393,52 @@ def run_ticker(args):
         for k in sig:
             if sig[k]:
                 last[k] = i
-    return t, {"eps": eps, "base": base}
+    # ---- reglas de venta: para cada compra C (técnica sin Golden Cross), qué pasa con cada regla vs mantener 12 meses
+    N_ = len(c)
+    arr = lambda col: np.full(N_, np.nan)
+    tn, s50, s200, elow, slp = arr(0), arr(0), arr(0), arr(0), arr(0)
+    dcross = np.zeros(N_, dtype=bool)
+    tn[ki] = df.trend_n.values
+    s50[ki] = df.sma50.values
+    s200[ki] = df.sma200.values
+    elow[ki] = pd.to_numeric(df.et_low, errors="coerce").values
+    slp[ki] = pd.to_numeric(df.slope200_pct, errors="coerce").values
+    dcross[ki] = df.cross.isin(["Death Cross reciente", "Death Cross en formación"]).values
+    exits = []
+    for e in eps["C"]:
+        i0 = int(np.searchsorted(dates, np.datetime64(e["date"])))
+        if i0 + 1 + EXIT_H >= N_:
+            continue
+        p0 = c[i0 + 1]
+        hold = c[i0 + 1 + EXIT_H] / p0 - 1
+        out = {"date": e["date"], "hold": float(hold), "hold6": float(c[i0 + 1 + 126] / p0 - 1)}
+        done = {}
+        mx = p0
+        for j in range(i0 + 2, i0 + 1 + EXIT_H):
+            pj = c[j]
+            if not np.isfinite(pj):
+                continue
+            mx = max(mx, pj)
+            r_, dd_ = pj / p0 - 1, pj / mx - 1
+            t_ = tn[j]
+            below200 = np.isfinite(s200[j]) and pj < s200[j]
+            risk = int(np.isfinite(t_) and t_ <= -1) + int(np.isfinite(elow[j]) and pj < elow[j] * 0.99) + \
+                int(dcross[j] or (np.isfinite(s50[j]) and np.isfinite(s200[j]) and s50[j] < s200[j] and np.isfinite(slp[j]) and slp[j] < -0.005))
+            fire = {"stop10": r_ <= -0.10, "stop10t": r_ <= -0.10 and np.isfinite(t_) and t_ <= 0, "hard20": r_ <= -0.20,
+                    "trail15": dd_ <= -0.15, "trail15m": dd_ <= -0.15 and below200, "bear": np.isfinite(t_) and t_ == -2,
+                    "risk2": risk >= 2}
+            fire["cartera"] = fire["stop10t"] or fire["hard20"] or fire["trail15m"] or fire["bear"]
+            fire["cartera_r"] = fire["cartera"] or fire["risk2"]
+            for k_, f_ in fire.items():
+                if f_ and k_ not in done:
+                    px = c[j + 1] if np.isfinite(c[j + 1]) else pj      # se vende al cierre del día siguiente
+                    done[k_] = (float(px / p0 - 1), j + 1 - (i0 + 1))
+            if len(done) == len(EXIT_RULES):
+                break
+        for k_ in EXIT_RULES:
+            out[k_] = done.get(k_, (float(hold), None))
+        exits.append(out)
+    return t, {"eps": eps, "base": base, "exits": exits}
 
 
 def by(rows, field):
@@ -434,6 +513,11 @@ def main():
         ciks = {}
     fund, edates = {}, {}
     for n_t, t in enumerate(tick):
+        if time.time() - T0 > TIME_BUDGET_FUND:
+            print(f"  tope de tiempo para balances alcanzado en {n_t}/{len(tick)}: el resto sigue sin fundamentos")
+            for t2 in tick[n_t:]:
+                fund[t2], edates[t2] = None, np.array([], dtype="datetime64[ns]")
+            break
         cik = ciks.get(t.upper()) or ciks.get(t.upper().replace("-", "."))
         fd, filed = fundamentals(t, cik, close[t], splits.get(t)) if cik else (None, [])
         fund[t] = None if fd is None else np.vstack([fd.eps.values, fd.pe.values, fd.pe_med5.values, fd.rev_g.values, fd.eps_g.values])
@@ -469,6 +553,26 @@ def main():
                 bk[k] += [dict(e, **extra) for e in r["eps"][k]]
             bk["base"] += [dict(e, **extra) for e in r["base"]]
         bset = sorted({f"{r['t']}|{r['date']}" for r in bk["B"]})
+        ex = []
+        for t in member[u]:
+            r = res.get(t)
+            if r:
+                ex += r.get("exits", [])
+        exits = {}
+        if ex:
+            hold = np.array([x["hold"] for x in ex])
+            exits["hold"] = {"label": "Mantener 12 meses sin vender", "n": len(ex), "avg": float(hold.mean()), "med": float(np.median(hold)),
+                             "win": float((hold > 0).mean()), "p10": float(np.percentile(hold, 10)), "days": EXIT_H, "fired": 0.0}
+            for k_, lbl in EXIT_RULES.items():
+                rr = np.array([x[k_][0] for x in ex])
+                dd = np.array([x[k_][1] if x[k_][1] is not None else EXIT_H for x in ex])
+                fired = np.array([x[k_][1] is not None for x in ex])
+                diff = rr[fired] - hold[fired]
+                exits[k_] = {"label": lbl, "n": len(ex), "avg": float(rr.mean()), "med": float(np.median(rr)), "win": float((rr > 0).mean()),
+                             "p10": float(np.percentile(rr, 10)), "days": float(dd.mean()), "fired": float(fired.mean()),
+                             "right": float((diff > 0).mean()) if fired.any() else None,
+                             "saved": float(diff[diff > 0].mean()) if (diff > 0).any() else None,
+                             "cost": float(diff[diff <= 0].mean()) if (diff <= 0).any() else None}
         return {
             "label": UNI_LBL[u], "n": len(member[u]), "tickers": unis[u],
             "variants": {k: {"label": VARIANTS[k], **summarize(bk[k])} for k in KEYS},
@@ -479,6 +583,7 @@ def main():
             "episodes": sorted([{k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items() if k not in ("b", "c", "d", "m", "g")}
                                 for r in bk["A"]], key=lambda r: r["date"], reverse=True),
             "b_set": bset,
+            "exits": exits,
         }
 
     out = {
@@ -521,6 +626,12 @@ def main():
             if s_.get("n"):
                 print(f"  {k} 6m: {s_['n']} señales · positivas {s_['win']*100:.0f}% · le ganó al S&P {s_.get('beat',0)*100:.0f}%"
                       f" · promedio {s_['avg']*100:+.1f}% · peor 10% {s_['p10']*100:+.1f}%")
+        X = U.get("exits") or {}
+        if X:
+            print(f"  -- Reglas de venta sobre {X['hold']['n']} compras C (comparadas con mantener 12 meses):")
+            for k_, v in X.items():
+                print(f"     {k_:10s} promedio {v['avg']*100:+.1f}% · peor 10% {v['p10']*100:+.1f}% · se activó {v['fired']*100:.0f}%"
+                      + (f" · acertó {v['right']*100:.0f}% de las veces" if v.get('right') is not None else ""))
         b = U["base"]["6m"]
         if b.get("n"):
             print(f"  Referencia 6m: positivas {b['win']*100:.0f}% · promedio {b['avg']*100:+.1f}% · peor 10% {b['p10']*100:+.1f}%")
