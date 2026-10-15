@@ -144,6 +144,15 @@ tr[data-t]{cursor:pointer}
 .mm-h b{font-size:16px}
 .mm-date{color:var(--muted);font-size:12px;margin-top:6px}
 .mm-zone{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:999px;font-weight:700;font-size:13px;transition:background .25s,color .25s}
+.sp-chart{display:flex;flex-direction:column;gap:6px}
+.sp-row{display:grid;grid-template-columns:minmax(120px,190px) 1fr 84px;gap:10px;align-items:center;cursor:pointer;font-size:13px}
+.sp-row:hover .sp-track{background:var(--line)}
+.sp-lbl{text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-track{position:relative;height:20px;background:var(--bg);border-radius:6px}
+.sp-track b{position:absolute;top:2px;bottom:2px;border-radius:4px;min-width:2px}
+.sp-ref{position:absolute;top:-3px;bottom:-3px;border-left:2px dashed var(--muted);z-index:1}
+.sp-val{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+@media (max-width:560px){.sp-row{grid-template-columns:92px 1fr 78px;gap:6px;font-size:12px}.sp-lbl .note{display:none}}
 .secgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:4px 0 14px}
 .sc{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg);cursor:pointer;text-align:left;font:inherit;color:var(--ink)}
 .sc:hover{border-color:var(--accent)}
@@ -276,6 +285,15 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
   <!-- MAPA -->
   <section id="t-map" class="hide">
     <div class="card">
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px"><h2>Rendimiento por sector</h2><p class="sub" style="margin:0">Variación de cada sector del S&amp;P 500 (medido con su ETF) en el período elegido. La línea punteada es el S&amp;P 500: los que la superan están liderando. Tocá un sector para ver su ficha.</p></div>
+        <div class="bar" style="margin:0">
+          <button class="chip" data-sp="1">Día</button><button class="chip on" data-sp="5">Semana</button><button class="chip" data-sp="21">Mes</button><button class="chip" data-sp="63">3 meses</button><button class="chip" data-sp="126">6 meses</button><button class="chip" data-sp="252">12 meses</button>
+        </div>
+      </div>
+      <div id="secperf" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
       <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px">
         <div style="flex:1;min-width:240px"><h2>Mapa de calor</h2><p class="sub" style="margin:0">Cada rectángulo es una empresa: el tamaño es su capitalización y el color, la variación. Tocá uno para ver la ficha.</p></div>
         <div class="bar" style="margin:0">
@@ -312,6 +330,8 @@ footer{max-width:1280px;margin:0 auto;padding:4px 16px 30px;font-size:11.5px;col
         <button class="chip on" data-vmr="us">S&amp;P 500</button>
         <button class="chip" data-vmr="latam">ADRs AR + BR</button>
         <select id="vm-sec"><option value="">Todos los sectores</option></select>
+        <input type="search" id="vm-q" list="vm-qlist" placeholder="Buscar papel, ej. MU" autocomplete="off" style="max-width:190px;text-transform:uppercase"><datalist id="vm-qlist"></datalist>
+        <span id="vm-qmsg" class="note"></span>
         <span id="vm-count" style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap"></span>
       </div>
       <div class="mm-wrap"><div id="vm-map" class="mm-chart"></div><div id="vm-panel" class="mm-side"></div></div>
@@ -483,7 +503,7 @@ function saveFav(){store('fav',[...S.fav])}
 $('#theme').onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');const n=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);store('theme',n)};
 
 /* ---------- tabs & filters ---------- */
-$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','map','rot','acc','mep','ced','pf'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='map')renderHeat();if(b.dataset.t==='pf')renderPf();if(b.dataset.t==='rot'){renderRotSec();renderVM()}});
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.classList.toggle('on',x===b));['opo','map','rot','acc','mep','ced','pf'].forEach(t=>$('#t-'+t).classList.toggle('hide',t!==b.dataset.t));if(b.dataset.t==='map'){renderHeat();renderSecPerf()}if(b.dataset.t==='pf')renderPf();if(b.dataset.t==='rot'){renderRotSec();renderVM()}});
 function chipGroup(attr,key,fn){$$('[data-'+attr+']').forEach(b=>b.onclick=()=>{$$('[data-'+attr+']').forEach(x=>x.classList.toggle('on',x===b));S[key]=b.dataset[attr];fn()})}
 chipGroup('pa','pa',renderAcc);chipGroup('lq','lq',renderMep);chipGroup('cf','cf',renderCed);
 $('#q-acc').oninput=renderAcc;$('#q-mep').oninput=renderMep;$('#q-ced').oninput=renderCed;
@@ -696,7 +716,7 @@ async function loadScreener(){
     S.scr=null;
     $('#opo-meta').innerHTML='Todavía no hay análisis generado. En GitHub entrá a <b>Actions → Screener diario PROSPEI → Run workflow</b> y esperá unos 15 minutos.';
   }
-  renderKpisUS();renderBuy();renderTop();renderAudit();if(!$('#t-pf').classList.contains('hide'))renderPf();renderHeat();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
+  renderKpisUS();renderBuy();renderTop();renderAudit();if(!$('#t-pf').classList.contains('hide'))renderPf();renderHeat();renderSecPerf();renderUni();if(!$('#t-rot').classList.contains('hide')){renderRotSec();renderVM()}
 }
 function liveOf(t){const us=S.data.us||{};for(const k of [t,t.replace('-','.'),t.replace('-','')]){const x=us[k];if(x&&ok(x.c))return x}return null}
 function cedearOf(r){
@@ -1162,6 +1182,21 @@ function renderVM(){
 $$('[data-vmr]').forEach(b=>b.onclick=()=>{$$('[data-vmr]').forEach(x=>x.classList.toggle('on',x===b));S.vm.reg=b.dataset.vmr;renderVM()});
 $$('[data-vmf]').forEach(b=>b.onclick=()=>{$$('[data-vmf]').forEach(x=>x.classList.toggle('on',x===b));S.vm.flt=b.dataset.vmf;renderVM()});
 $('#vm-sec').onchange=e=>{S.vm.sec=e.target.value;renderVM()};
+/* buscar un papel en el mapa de valor y momentum */
+function vmFind(raw){
+  const t=String(raw||'').trim().toUpperCase().replace('.','-'),msg=$('#vm-qmsg');msg.textContent='';if(!t||!S.scr)return;
+  const r=S.scr.rows.find(x=>x.t===t);
+  if(!r){msg.textContent=`${t} no está en el monitor.`;return}
+  if(!r.vm||!r.vm.length){msg.textContent=`${t} no tiene datos suficientes para el mapa.`;return}
+  const reg=r.region==='EE.UU.'?'us':'latam';
+  if(S.vm.reg!==reg){S.vm.reg=reg;$$('[data-vmr]').forEach(x=>x.classList.toggle('on',x.dataset.vmr===reg))}
+  if(S.vm.sec&&S.vm.sec!==r.sector){S.vm.sec='';$('#vm-sec').value=''}
+  S.vm.focus=t;S.vm.pendingSel=t;renderVM();
+  $('#vm-map').scrollIntoView({behavior:'smooth',block:'center'});
+}
+$('#vm-q').addEventListener('focus',()=>{const dl=$('#vm-qlist');if(S.scr&&!dl.children.length)dl.innerHTML=S.scr.rows.filter(r=>r.vm&&r.vm.length).map(r=>`<option value="${esc(r.t)}">${esc(r.name)}</option>`).join('')});
+$('#vm-q').addEventListener('keydown',e=>{if(e.key==='Enter')vmFind(e.target.value)});
+$('#vm-q').addEventListener('change',e=>vmFind(e.target.value));
 
 function squarify(items,x,y,w,h){
   /* items: [{v,...}] ordenados desc; devuelve [{item,x,y,w,h}] */
@@ -1188,6 +1223,28 @@ function fvCol(x,rng){
 }
 function scoreFv(v){return v==null?'#414554':fvCol((v-50)/50,1)}
 S.hm='r1d';S.hu='us';
+/* ---------- rendimiento por sector (barras) ---------- */
+S.sp=5;
+const SPK={1:'r1d',5:'r1w',21:'r1m',63:'r3m',126:'r6m',252:'r12m'},SPL={1:'del día',5:'de la semana',21:'del último mes',63:'de los últimos 3 meses',126:'de los últimos 6 meses',252:'de los últimos 12 meses'};
+function etfRet(e,n){
+  if(n===1){const lv=liveOf(e.etf);if(lv&&lv.pct_change!=null)return lv.pct_change/100}
+  const c=e.closes;if(c&&c.length>n&&c[c.length-1-n]>0)return c[c.length-1]/c[c.length-1-n]-1;
+  const v=e[SPK[n]];return v==null?null:v}
+function renderSecPerf(){
+  const el=$('#secperf');if(!el)return;const E=S.scr&&S.scr.etfs;if(!E||!E.length){el.innerHTML='<p class="note">Cargando…</p>';return}
+  const n=S.sp,rows=E.map(e=>({e,v:etfRet(e,n)})).filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
+  let spy=S.scr.spy&&S.scr.spy[SPK[n]];if(n===1){const lv=liveOf('SPY');if(lv&&lv.pct_change!=null)spy=lv.pct_change/100}
+  const mx=Math.max(0.005,...rows.map(x=>Math.abs(x.v)),spy!=null?Math.abs(spy):0);
+  const W=v=>Math.abs(v)/mx*50;
+  const col=v=>{const a=Math.min(1,Math.abs(v)/mx);return v>=0?`hsl(140 ${40+25*a}% ${52-12*a}%)`:`hsl(4 ${50+25*a}% ${58-10*a}%)`};
+  el.innerHTML=`<div class="sp-chart">${rows.map(x=>{const v=x.v,lead=spy!=null&&v>spy;return `<div class="sp-row" data-etf="${esc(x.e.etf)}" title="${esc(x.e.sector)} (${esc(x.e.etf)}): ${pct(v,2)} ${SPL[n]}${spy!=null?' · S&P 500 '+pct(spy,2):''}">
+      <div class="sp-lbl">${esc(x.e.sector)} <span class="note">${esc(x.e.etf)}</span></div>
+      <div class="sp-track">${spy!=null?`<i class="sp-ref" style="left:${50+(spy>=0?1:-1)*W(spy)}%"></i>`:''}<b style="${v>=0?'left:50%':'right:50%'};width:${W(v)}%;background:${col(v)}"></b></div>
+      <div class="sp-val ${cls(v)}">${pct(v,2)}${lead?' <span class="note">▲</span>':''}</div></div>`}).join('')}</div>
+    <p class="note" style="margin:8px 0 0">${spy!=null?`S&amp;P 500 ${SPL[n]}: <b class="${cls(spy)}">${pct(spy,2)}</b> (línea punteada). ▲ = le ganó al índice. `:''}${n===1?'Con precios en vivo cuando el mercado está abierto.':'Con el cierre del último análisis diario.'}</p>`;
+  el.querySelectorAll('[data-etf]').forEach(r=>r.onclick=()=>openEtf(r.dataset.etf));
+}
+$$('[data-sp]').forEach(b=>b.onclick=()=>{$$('[data-sp]').forEach(x=>x.classList.toggle('on',x===b));S.sp=+b.dataset.sp;renderSecPerf()});
 function renderHeat(){
   const el=$('#heat');if(!el)return;
   if(!S.scr){el.innerHTML='<p class="note" style="color:#ccc;padding:20px">Todavía no hay análisis generado.</p>';return}
@@ -1441,7 +1498,7 @@ async function load(){
   if(rp.status==='fulfilled'&&rp.value&&rp.value.valor)S.data.rp=rp.value;
   if(S.data.bonds){const R=S.data.bonds.rows;S.ref.mep=pickRef(R,'ult',['AL30','GD30']);S.ref.ccl=pickRef(R,'ccl',['AL30','GD30'])}
   buildCed();
-  renderKpis();renderAcc();renderMep();renderCed();renderTop();renderHeat();renderUni();
+  renderKpis();renderAcc();renderMep();renderCed();renderTop();renderHeat();renderSecPerf();renderUni();
   const a=$('#alert');
   if(errs.length){a.style.display='block';a.textContent='No se pudieron actualizar: '+errs.join(', ')+'. Se reintenta en el próximo refresco.'}else a.style.display='none';
   $('#dot').className='dot'+(errs.length>=3?' err':'');
