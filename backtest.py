@@ -51,8 +51,10 @@ VARIANTS = {
     "B": "A + fundamentos básicos de ese momento: ganancia positiva, ventas creciendo y P/E no más de 10% arriba de su promedio de 5 años",
     "C": "A sin Golden Cross: solo corrección con rebote o ruptura de máximos",
     "D": "C + los mismos fundamentos de B (la regla propuesta para el monitor)",
+    "E": "D + filtro de mercado: solo cuando el S&P 500 está arriba de su media de 200 días",
+    "F": "C + crecimiento (ganancia y ventas de 12 meses creciendo contra el año anterior) + filtro de mercado",
 }
-KEYS = ("A", "B", "C", "D")
+KEYS = ("A", "B", "C", "D", "E", "F")
 # reglas originales del monitor (la A incluye el Golden Cross; el monitor ya lo sacó en base a esta prueba)
 ENTRY_A = {"Corrección con señal de rebote", "Golden Cross", "Ruptura de máximos"}
 
@@ -193,8 +195,10 @@ def fundamentals(sym, cik, close, splits=None):
     pe = (close / eps).where(eps > 0)
     pe_med5 = pe.rolling(1260, min_periods=500).median().shift(1)
     rev_g = rev / rev.shift(252) - 1
+    eps_prev = eps.shift(252)
+    eps_g = (eps / eps_prev - 1).where((eps > 0) & (eps_prev > 0))
     filed = sorted({f for _, f, _ in eps_q})
-    return pd.DataFrame({"eps": eps, "pe": pe, "pe_med5": pe_med5, "rev_g": rev_g}), filed
+    return pd.DataFrame({"eps": eps, "pe": pe, "pe_med5": pe_med5, "rev_g": rev_g, "eps_g": eps_g}), filed
 
 
 def sec_earn_dates(cik):
@@ -279,7 +283,7 @@ CROSS = [None, "Golden Cross reciente", "Golden Cross en formación", "Death Cro
 def run_ticker(args):
     """Corre la prueba completa para una acción (en un proceso aparte). Devuelve episodios por variante,
     muestra de "cualquier día" y los datos para el gráfico."""
-    t, c, v, spy, mom, days, dates, ed, fd = args
+    t, c, v, spy, mom, days, dates, ed, fd, mkt = args
     rows, keep = [], []
     for i in days:
         lo = max(0, i - 1100)
@@ -309,7 +313,7 @@ def run_ticker(args):
     df["af"] = 0
     df["setup"] = [S.setup(r) for r in df.itertuples()]
     n = len(c)
-    eps = {"A": [], "B": [], "C": [], "D": []}
+    eps = {k: [] for k in KEYS}
     base = []
     last = {}
     for i, r in zip(ki, df.itertuples()):
@@ -323,7 +327,12 @@ def run_ticker(args):
             e, pe, med, g = fd[0][i], fd[1][i], fd[2][i], fd[3][i]
             b = bool(np.isfinite(e) and e > 0 and np.isfinite(g) and g > 0 and np.isfinite(pe) and np.isfinite(med) and pe <= med * 1.10)
         cc_ = a and r.setup != "Golden Cross"
-        sig = {"A": a, "B": b, "C": cc_, "D": b and cc_}
+        up = bool(mkt[i])
+        grow = False
+        if cc_ and fd is not None:
+            eg, rg = fd[4][i], fd[3][i]
+            grow = bool(np.isfinite(eg) and eg > 0 and np.isfinite(rg) and rg > 0)
+        sig = {"A": a, "B": b, "C": cc_, "D": b and cc_, "E": b and cc_ and up, "F": grow and up}
         new = {k: sig[k] and i - last.get(k, -999) > GAP for k in sig}
         if i % 5 == 0 or any(new.values()):
             p0 = c[i + 1]
@@ -346,7 +355,7 @@ def run_ticker(args):
                 base.append(res)
             for k in sig:
                 if new[k]:
-                    eps[k].append(dict(res, b=b, c=cc_, d=b and cc_))
+                    eps[k].append(dict(res, b=b, c=cc_, d=b and cc_, m=up, g=grow))
         for k in sig:
             if sig[k]:
                 last[k] = i
@@ -427,7 +436,7 @@ def main():
     for n_t, t in enumerate(tick):
         cik = ciks.get(t.upper()) or ciks.get(t.upper().replace("-", "."))
         fd, filed = fundamentals(t, cik, close[t], splits.get(t)) if cik else (None, [])
-        fund[t] = None if fd is None else np.vstack([fd.eps.values, fd.pe.values, fd.pe_med5.values, fd.rev_g.values])
+        fund[t] = None if fd is None else np.vstack([fd.eps.values, fd.pe.values, fd.pe_med5.values, fd.rev_g.values, fd.eps_g.values])
         edates[t] = np.array(earnings_dates(t, filed, cik), dtype="datetime64[ns]")
         if n_t % 50 == 0:
             print(f"  balances {n_t + 1}/{len(tick)}")
@@ -435,11 +444,13 @@ def main():
     print(f"Balances de la SEC: {sec_ok} de {len(tick)} empresas" + (f" · {sec_msg}" if sec_msg else ""))
 
     spy = close["SPY"].values
+    mkt = (close["SPY"] > close["SPY"].rolling(200).mean()).values      # filtro de mercado
+    print(f"Días con el S&P arriba de su media de 200: {mkt[days].mean()*100:.0f}% del período")
     dates = idx.values
     jobs = []
     for t in tick:
         mom = mom_pct_all[t].values if t in mom_pct_all.columns else np.full(len(idx), np.nan)
-        jobs.append((t, close[t].values, vol[t].values, spy, mom, days, dates, edates[t], fund[t]))
+        jobs.append((t, close[t].values, vol[t].values, spy, mom, days, dates, edates[t], fund[t], mkt))
     res = {}
     with ProcessPoolExecutor() as ex:
         for k, (t, r) in enumerate(ex.map(run_ticker, jobs, chunksize=4)):
@@ -465,7 +476,7 @@ def main():
             "by_sector": {k: by(bk[k], "sector") for k in KEYS},
             "by_setup": {k: by(bk[k], "setup") for k in KEYS},
             "by_year": {k: by(bk[k], "year") for k in KEYS + ("base",)},
-            "episodes": sorted([{k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items() if k not in ("b", "c", "d")}
+            "episodes": sorted([{k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items() if k not in ("b", "c", "d", "m", "g")}
                                 for r in bk["A"]], key=lambda r: r["date"], reverse=True),
             "b_set": bset,
         }
