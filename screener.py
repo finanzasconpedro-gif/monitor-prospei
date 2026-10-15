@@ -119,7 +119,7 @@ def technical(c, v):
         "macd_h": float(hist[-1]),
         "macd_cross": bool(hist[-1] > 0 and (hist[-6:-1] <= 0).any()),
         "macd_up": bool(hist[-1] > hist[-2]),
-        "r1d": ret(c, 1), "r1m": ret(c, 21), "r3m": ret(c, 63), "r6m": ret(c, 126),
+        "r1d": ret(c, 1), "r1w": ret(c, 5), "r1m": ret(c, 21), "r3m": ret(c, 63), "r6m": ret(c, 126),
         "r12m": ret(c, 251) if len(c) > 251 else None,
         "hi52": hi, "lo52": lo, "dd": p / hi - 1, "from_lo": p / lo - 1,
         "vol_ratio": vol_ratio,
@@ -953,7 +953,7 @@ def build_etfs(prices, series=None):
         d.update(fase=fase, rs1=r2(rs1), rs3=r2(rs3), rs6=r2(rs6), pro=pro, con=con,
                  closes=[round(float(x), 2) for x in r.closes])
         out.append(d)
-    spy_out = {k: r2(spy[k]) for k in ["p", "r1d", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200", "dd"]}
+    spy_out = {k: r2(spy.get(k)) for k in ["p", "r1d", "r1w", "r1m", "r3m", "r6m", "r12m", "rsi", "sma50", "sma200", "dd"]}
     spy_out["above200"] = bool(spy["p"] > spy["sma200"])
     return spy_out, sorted(out, key=lambda e: -(e["at"] or 0))
 
