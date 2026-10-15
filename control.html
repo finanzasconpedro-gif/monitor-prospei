@@ -330,6 +330,20 @@ async function showOne(t){
 }
 S.btu='broad';
 const VSHORT={A:'técnica',B:'técnica + fundamentos',C:'sin Golden Cross',D:'sin Golden Cross + fundamentos',E:'D + filtro de mercado',F:'crecimiento + filtro de mercado'};
+function exitsHtml(B){
+  const X=B.exits;if(!X||!X.hold)return '';const h=X.hold;
+  const keys=['stop10','stop10t','hard20','trail15','trail15m','bear','risk2','cartera','cartera_r'].filter(k=>X[k]);
+  const d=(v,b,dd=1)=>v==null?'—':`<span class="${v-b>0.0005?'up':v-b<-0.0005?'down':''}">${pct(v,dd)}</span>`;
+  const row=(k,v)=>`<tr${k==='hold'?' style="font-weight:600"':''}><td>${esc(v.label)}</td><td class="n">${k==='hold'?'—':P0(v.fired)}</td><td class="n">${Math.round(v.days)}</td>
+    <td class="n">${k==='hold'?pct(v.avg,1):d(v.avg,h.avg)}</td><td class="n">${k==='hold'?pct(v.med,1):d(v.med,h.med)}</td><td class="n">${k==='hold'?P0(v.win):d(v.win,h.win,0).replace('+','')}</td>
+    <td class="n">${k==='hold'?pct(v.p10,1):d(v.p10,h.p10)}</td><td class="n">${v.right==null?'—':P0(v.right)}</td>
+    <td class="n up">${v.saved==null?'—':pct(v.saved,1)}</td><td class="n down">${v.cost==null?'—':pct(v.cost,1)}</td></tr>`;
+  return `<h3 style="margin:22px 0 4px">¿Funcionan las reglas de venta?</h3>
+    <p class="sub">Para cada compra de la regla C (${h.n} compras con 12 meses cumplidos) se simuló qué pasaba vendiendo con cada regla, contra mantener 12 meses. Si la regla no se activa, la posición se mantiene los 12 meses. Después de vender, el dinero queda quieto (sin rendimiento). En verde: mejor que mantener; en rojo: peor.</p>
+    <div class="tw"><table><thead><tr><th>Regla</th><th class="n">Se activó</th><th class="n">Días en cartera</th><th class="n">Promedio</th><th class="n">Mediana</th><th class="n">Positivas</th><th class="n">Peor 10%</th><th class="n">Acertó</th><th class="n">Cuando acertó, evitó</th><th class="n">Cuando falló, costó</th></tr></thead>
+    <tbody>${row('hold',h)}${keys.map(k=>row(k,X[k])).join('')}</tbody></table></div>
+    <p class="note" style="margin-top:6px"><b>Acertó</b> = de las veces que la regla vendió, en qué porcentaje el precio de venta fue mejor que el de 12 meses después. <b>Evitó / costó</b> = diferencia promedio contra mantener en esos casos. Una buena regla de venta mejora el "peor 10%" sin resignar mucho promedio.</p>`;
+}
 function renderBT(){
   const B0=S.bt,US=B0.universes||{top:B0};if(!US[S.btu])S.btu=Object.keys(US)[0];
   const B={...B0,...US[S.btu]};S.btc=B;
@@ -355,7 +369,8 @@ function renderBT(){
       <li>Se eligieron las empresas más grandes de <b>hoy</b>: son las que mejor les fue, lo que favorece los resultados (sesgo de supervivencia). Comparar contra la referencia corrige buena parte de ese sesgo.</li>
       <li><b>+${P0(B.target)} antes que ${P0(B.stop)}</b>: porcentaje de señales que tocaron la ganancia objetivo antes que el stop en un plazo de ${B.ts_days} ruedas.</li></ul></details>
     <div class="grid2">${grp(B.by_setup.A,'Por tipo de señal (A)')}${grp(B.by_year.A,'Por año (A)')}</div>
-    ${grp(B.by_sector.A,'Por sector (A)')}`;
+    ${grp(B.by_sector.A,'Por sector (A)')}
+    ${exitsHtml(B)}`;
   const sel=$('#bt-sec');sel.innerHTML='<option value="">Todos los sectores</option>'+Object.keys(B.by_sector.A).map(k=>`<option>${esc(k)}</option>`).join('');
   sel.onchange=renderBTEp;
   $$('[data-btf]').forEach(b=>b.onclick=()=>{S.btf=b.dataset.btf;$$('[data-btf]').forEach(x=>x.classList.toggle('on',x===b));renderBTEp()});
