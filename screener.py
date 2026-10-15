@@ -1162,8 +1162,8 @@ def load_prev_verdicts(path="data.json"):
         return {}
 
 
-def add_verdicts(df, prev):
-    vv = [verdict(r) for r in df.itertuples()]
+def add_verdicts(df, prev, mkt_up=True):
+    vv = [verdict(r, mkt_up) for r in df.itertuples()]
     df["verdict"] = [v[0] for v in vv]
     df["verdict_why"] = [v[1] for v in vv]
     df["verdict_prev"] = [prev.get(t) for t in df.t]
@@ -1178,7 +1178,7 @@ V_AT, V_AF, V_UP = 65, 60, 0.10      # umbrales: técnico, fundamental, recorrid
 ENTRY_SETUPS = {"Corrección con señal de rebote", "Ruptura de máximos"}
 
 
-def verdict(r):
+def verdict(r, mkt_up=True):
     L = lights(r)
     up = r.fair_up if r.fair_up is not None and pd.notna(r.fair_up) else None
     doubt = bool(getattr(r, "vm_doubt", False))
@@ -1201,6 +1201,10 @@ def verdict(r):
             cuando = "hoy" if int(r.earn_days) == 0 else f"en {int(r.earn_days)} días"
             return "Vigilar", f"Cumple todo, pero presenta balance {cuando}: esperar el resultado antes de entrar."
         ent = r.setup if r.setup in ENTRY_SETUPS else "zona Compra"
+        if not mkt_up:
+            # validado en el track récord: con el mercado bajista las señales fallan más (2022)
+            return "Comprar en partes", (f"Cumple los 5 criterios ({ent.lower()}), pero el S&P 500 está debajo de su media de 200 días: "
+                                         "mercado bajista. Entrada escalonada de a tercios, con stop.")
         return "Comprar", f"Cumple los 5 criterios: técnico {r.at:.0f}, fundamental {r.af:.0f}, recorrido {up_txt}, {ent.lower()}."
     # 2) Evitar
     if r.vm_z == "Evitar" or r.cyc or (r.val_verdict == "Cara" and r.trend_n <= 0):
@@ -1332,6 +1336,7 @@ def to_json(df, n_universe, spy=None, etfs=None, vm_dates=None, macro=None):
             "rrg_dates": next((e["rrg_dates"] for e in (etfs or []) if e.get("rrg_dates")), []),
             "vm_dates": vm_dates or [],
             "audit_summary": audit_summary(df),
+            "market": df.attrs.get("market", {"up": True}),
             "macro": macro or {}, "vm_k": r2(df.attrs.get("vm_k", 1.0), 3),
             "rows": out_rows}
 
@@ -1398,7 +1403,13 @@ def main():
         macro["breadth"] = {"name": "Amplitud S&P 500", "v": round(float((us.p > us.sma200).mean()) * 100, 1),
                             "v50": round(float((us.p > us.sma50).mean()) * 100, 1)}
     df = add_value_momentum(df, series)
-    df = add_verdicts(df, load_prev_verdicts())
+    # filtro de mercado: con el S&P 500 debajo de su media de 200 días no hay "Comprar" pleno
+    st = technical(*prices[BENCH]) if BENCH in prices else None
+    mkt = {"up": bool(st["p"] > st["sma200"]), "p": r2(st["p"], 2), "sma200": r2(st["sma200"], 2),
+           "dist": r2(st["p"] / st["sma200"] - 1)} if st else {"up": True}
+    df.attrs["market"] = mkt
+    print("Filtro de mercado:", "S&P arriba de su media de 200" if mkt["up"] else "S&P DEBAJO de su media de 200 (mercado bajista)")
+    df = add_verdicts(df, load_prev_verdicts(), mkt["up"])
     print("Veredictos:", df.verdict.value_counts().to_dict(), "· nuevas Comprar:", list(df[df.verdict_new].t))
     spy, etfs = build_etfs(prices, series)
     vm_dates = [d.strftime("%Y-%m-%d") for d in series[BENCH].resample("W-FRI").last().dropna().tail(VM_WEEKS + 1).index] if BENCH in series else []
