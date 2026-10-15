@@ -329,7 +329,7 @@ async function showOne(t){
     <p class="note" style="margin-top:8px">La regla actual del monitor además exige valor justo y analistas, que no tienen historia: lo verde es lo más parecido que se puede reconstruir.</p>`;
 }
 S.btu='broad';
-const VSHORT={A:'técnica',B:'técnica + fundamentos',C:'sin Golden Cross',D:'sin Golden Cross + fundamentos'};
+const VSHORT={A:'técnica',B:'técnica + fundamentos',C:'sin Golden Cross',D:'sin Golden Cross + fundamentos',E:'D + filtro de mercado',F:'crecimiento + filtro de mercado'};
 function renderBT(){
   const B0=S.bt,US=B0.universes||{top:B0};if(!US[S.btu])S.btu=Object.keys(US)[0];
   const B={...B0,...US[S.btu]};S.btc=B;
@@ -338,7 +338,7 @@ function renderBT(){
   const secWarn=B0.sec&&B0.sec.ok<B0.sec.total*0.8?`<div class="cedbox" style="margin-bottom:10px">⚠️ Solo se pudieron bajar los balances de ${B0.sec.ok} de ${B0.sec.total} empresas de la SEC${B0.sec.error?': '+esc(B0.sec.error):''}. La variante B queda incompleta.</div>`:'';
   const A=B.variants.A,Bv=B.variants.B,base=B.base,g=B.goal;
   const tile=(lbl,v,meta,good)=>`<div class="kpi"><div class="l">${lbl}</div><div class="v ${good==null?'':good?'up':'down'}">${v}</div><div class="s">${meta}</div></div>`;
-  const V=B.variants,VK=['A','B','C','D'];
+  const V=B.variants,VK=['A','B','C','D','E','F'];
   const row=(name,v)=>`<tr><td><b>${name}</b></td><td class="n">${v['6m'].n||0}</td>${['3m','6m','12m'].map(h=>`<td class="n ${v[h].n?(v[h].win>=g?'up':''):''}">${P0(v[h].win)}</td>`).join('')}<td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n ${cls(v['6m'].med)}">${pct(v['6m'].med,1)}</td><td class="n down">${pct(v['6m'].p10,1)}</td><td class="n">${P0(v.ts.target)}</td></tr>`;
   const grp=(obj,title)=>`<div style="min-width:0"><h4 style="margin:16px 0 6px">${title}</h4><div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 6m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Positivas 12m</th></tr></thead><tbody>${Object.entries(obj).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${v.n}</td><td class="n ${v['6m'].n&&v['6m'].win>=g?'up':''}">${P0(v['6m'].win)}${v['6m'].n?` <span class="note">(${v['6m'].n})</span>`:''}</td><td class="n">${P0(v['6m'].beat)}</td><td class="n ${cls(v['6m'].avg)}">${pct(v['6m'].avg,1)}</td><td class="n">${P0(v['12m'].win)}</td></tr>`).join('')}</tbody></table></div></div>`;
   $('#bt-body').innerHTML=secWarn+`
@@ -350,7 +350,7 @@ function renderBT(){
     <div class="tw"><table><thead><tr><th></th><th class="n">Señales</th><th class="n">Positivas 3m</th><th class="n">Positivas 6m</th><th class="n">Positivas 12m</th><th class="n">Le ganó al S&amp;P 6m</th><th class="n">Promedio 6m</th><th class="n">Mediana 6m</th><th class="n">Peor 10% 6m</th><th class="n">+${P0(B.target)} antes que ${P0(B.stop)}</th></tr></thead>
       <tbody>${VK.filter(k=>V[k]).map(k=>row(k+' · '+VSHORT[k],V[k])).join('')}${row('Referencia: cualquier día',base)}</tbody></table></div>
     <details style="margin-top:10px"><summary class="note" style="cursor:pointer">Qué es cada variante y qué no se pudo reconstruir</summary>
-      <ul class="note" style="padding-left:18px"><li><b>A:</b> ${esc(A.label)}.</li><li><b>B:</b> ${esc(Bv.label)}.${V.C?`<li><b>C:</b> ${esc(V.C.label)}.</li><li><b>D:</b> ${esc(V.D.label)}.</li>`:''} Fundamentos de los balances presentados a la SEC hasta ese día.</li>
+      <ul class="note" style="padding-left:18px"><li><b>A:</b> ${esc(A.label)}.</li><li><b>B:</b> ${esc(Bv.label)}.${['C','D','E','F'].filter(k=>V[k]).map(k=>`<li><b>${k}:</b> ${esc(V[k].label)}.</li>`).join('')} Fundamentos de los balances presentados a la SEC hasta ese día.</li>
       <li>El precio objetivo de los analistas, la ganancia esperada y el valor justo <b>no tienen historia gratuita</b>: por eso el veredicto completo (con recorrido a valor justo ≥ 10%) no se puede reproducir hacia atrás. Para medirlo exacto, el monitor guarda desde ahora las señales de cada día.</li>
       <li>Se eligieron las empresas más grandes de <b>hoy</b>: son las que mejor les fue, lo que favorece los resultados (sesgo de supervivencia). Comparar contra la referencia corrige buena parte de ese sesgo.</li>
       <li><b>+${P0(B.target)} antes que ${P0(B.stop)}</b>: porcentaje de señales que tocaron la ganancia objetivo antes que el stop en un plazo de ${B.ts_days} ruedas.</li></ul></details>
